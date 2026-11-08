@@ -1,5 +1,8 @@
 # KhinsiderDownloader 🎵 
 ### A simple Bulk Khinsider downloader with GUI
+
+> **This is FrankenSama's maintained version** of KhinsiderDownloader, developed independently with its own changes and release schedule. It is based on the original [KhinsiderDownloader](https://github.com/weespin/KhinsiderDownloader) by [Weespin](https://github.com/weespin) — many thanks for the original work.
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Github Downloads (total)](https://img.shields.io/github/downloads/FrankenSama/KhinsiderDownloader/total.svg)](https://tooomm.github.io/github-release-stats/?username=FrankenSama&repository=KhinsiderDownloader)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/FrankenSama/KhinsiderDownloader/build.yml)
@@ -120,7 +123,8 @@ Please respect the intellectual property rights of artists and content creators.
 ## 📜 License
 
 **KhinsiderDownloader**  
-Copyright (C) 2025 Weespin
+Original work Copyright (C) 2025 Weespin  
+Modifications Copyright (C) 2026 FrankenSama
 
 This program is free software: you can redistribute it and/or modify it under the terms of the  
 GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
