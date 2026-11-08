@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QNetworkAccessManager>
+#include <QHash>
 #include <QString>
 
 #include "SearchAlbumInfoViewModel.h"
@@ -10,6 +11,7 @@
 #include "parser/KhinsiderParser.h"
 
 class Album;
+class QNetworkReply;
 
 class SearchController : public QObject {
     Q_OBJECT
@@ -47,6 +49,8 @@ private:
     QNetworkAccessManager *networkManager;
     SearchResultModel *m_searchResultVM;
     SearchAlbumInfoViewModel *m_albumInfoVM;
+    QNetworkReply *m_searchReply = nullptr;
+    QHash<Album *, QNetworkReply *> m_albumReplies;
 };
 
 #endif //SEARCHCONTROLLER_H

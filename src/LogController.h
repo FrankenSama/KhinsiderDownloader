@@ -5,6 +5,8 @@
 #include <QTextStream>
 #include <QString>
 #include <QObject>
+#include <QMutex>
+#include <QPointer>
 #include <QMessageLogContext>
 
 #include "pages/settings/Settings.h"
@@ -20,6 +22,7 @@ public:
     void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 
     void setSettings(Settings *settings) {
+        QMutexLocker locker(&m_mutex);
         m_settings = settings;
     }
 
@@ -32,9 +35,10 @@ private:
 
     ~LogController();
 
-    Settings *m_settings = nullptr;
+    QPointer<Settings> m_settings;
     QFile m_logFile;
     QTextStream m_stream;
+    QMutex m_mutex;
 };
 
 

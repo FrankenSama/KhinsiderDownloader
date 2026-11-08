@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <algorithm>
 
 AboutController::AboutController(QObject *parent)
     : QObject(parent) {
@@ -20,9 +21,23 @@ QString AboutController::appVersion() const {
     return m_version;
 }
 
+namespace {
+QString normalizedVersion(const QString &version) {
+    QString normalized = version.trimmed();
+    if (normalized.startsWith('v', Qt::CaseInsensitive)) {
+        normalized.remove(0, 1);
+    }
+    const int suffixIndex = normalized.indexOf('-');
+    if (suffixIndex >= 0) {
+        normalized = normalized.left(suffixIndex);
+    }
+    return normalized;
+}
+}
+
 bool AboutController::isNewVersion(const QString &latestVersion, const QString &currentVersion) {
-    QVersionNumber currentVer = QVersionNumber::fromString(currentVersion.split('-').first());
-    QVersionNumber latestVer = QVersionNumber::fromString(latestVersion.split('-').first());
+    QVersionNumber currentVer = QVersionNumber::fromString(normalizedVersion(currentVersion));
+    QVersionNumber latestVer = QVersionNumber::fromString(normalizedVersion(latestVersion));
 
     // Compare the version numbers
     return latestVer > currentVer;
@@ -49,6 +64,11 @@ void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
 
     QByteArray response = reply->readAll();
     QJsonDocument doc = QJsonDocument::fromJson(response);
+    if (!doc.isArray()) {
+        qDebug() << "Update check returned an unexpected response";
+        reply->deleteLater();
+        return;
+    }
     QJsonArray releases = doc.array();
 
     QString currentVersion = m_version;
@@ -57,10 +77,9 @@ void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
 
     for (const QJsonValue &value: releases) {
         QJsonObject release = value.toObject();
-        QString tagName = release["tag_name"].toString();
-        if (tagName.startsWith('v'))
-        {
-            tagName = tagName.mid(1);
+        QString tagName = release["tag_name"].toString().trimmed();
+        if (tagName.isEmpty()) {
+            continue;
         }
 
         bool isPrerelease = release["prerelease"].toBool();
@@ -70,9 +89,10 @@ void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
         }
     }
 
+    // Sort newest first; tag names may have a leading "v" and a suffix.
     std::sort(newerReleases.begin(), newerReleases.end(), [](const QJsonObject &a, const QJsonObject &b) {
-        return QVersionNumber::fromString(a["tag_name"].toString()) <
-               QVersionNumber::fromString(b["tag_name"].toString());
+        return QVersionNumber::fromString(normalizedVersion(a["tag_name"].toString())) >
+               QVersionNumber::fromString(normalizedVersion(b["tag_name"].toString()));
     });
 
     if (!newerReleases.isEmpty()) {

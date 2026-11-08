@@ -1,7 +1,8 @@
 #ifndef DOWNLOADERMODEL_H
 #define DOWNLOADERMODEL_H
 #include <QAbstractListModel>
-#include "parser/KhinsiderParser.h"
+#include <QSharedPointer>
+#include "parser/Album.h"
 
 
 class DownloaderModel : public QAbstractListModel {
@@ -48,9 +49,9 @@ public slots:
 
     void retryAlbum(int index);
 
-    void setAlbums(const QVector<Album *> &albums);
+    void setAlbums(const QVector<QSharedPointer<Album> > &albums);
 
-    void insertAlbum(Album *album);
+    void insertAlbum(const QSharedPointer<Album> &album);
 
 signals:
     void albumCancelRequested(Album *album);
@@ -62,7 +63,7 @@ signals:
     void addToDownloadList(const QString &List);
 
 private:
-    QVector<Album *> m_albums;
+    QVector<QSharedPointer<Album> > m_albums;
 };
 
 #endif // DOWNLOADERMODEL_H

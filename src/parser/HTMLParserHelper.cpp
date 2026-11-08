@@ -3,18 +3,20 @@
 #include <qtextstream.h>
 
 xmlNodePtr HTMLParserHelper::SkipTo(const QString &title, xmlNodePtr node) {
-	if (node == nullptr) {
-		return nullptr;
-	}
-	do {
-		if (node->content) {
-			QString content = QString::fromUtf8((const char *) node->content);
+	while (node) {
+		// xmlNode::content is only set for text-like nodes. Use
+		// xmlNodeGetContent() so this also works when the caller passes an
+		// element node (for example <b>Platforms:</b>).
+		xmlChar *rawContent = xmlNodeGetContent(node);
+		if (rawContent) {
+			const QString content = QString::fromUtf8(reinterpret_cast<const char *>(rawContent));
+			xmlFree(rawContent);
 			if (content.contains(title, Qt::CaseInsensitive)) {
 				return node;
 			}
 		}
 		node = node->next;
-	} while (node && node->next);
+	}
 	return nullptr;
 }
 
@@ -25,30 +27,57 @@ unsigned long HTMLParserHelper::convertToKB(const QString &str) {
 	if (parts.size() < 2)
 		return 0;
 
-	double value = parts[0].toDouble();
-	QString unit = parts[1];
+	bool ok = false;
+	double value = parts[0].toDouble(&ok);
+	if (!ok) {
+		return 0;
+	}
 
-	if (unit == "MB") {
-		return value * 1024;
+	const QString unit = parts[1].toUpper();
+
+	if (unit == "TB") {
+		return static_cast<unsigned long>(value * 1024 * 1024 * 1024);
 	} else if (unit == "GB") {
-		return value * 1024 * 1024;
+		return static_cast<unsigned long>(value * 1024 * 1024);
+	} else if (unit == "MB") {
+		return static_cast<unsigned long>(value * 1024);
 	} else if (unit == "KB") {
-		return value;
+		return static_cast<unsigned long>(value);
+	} else if (unit == "B" || unit == "BYTES") {
+		return static_cast<unsigned long>(value / 1024.0);
 	}
 
 	return 0;
 }
 
 int HTMLParserHelper::convertToSeconds(const QString &time_str) {
-	QStringList parts = time_str.split(':');
+	QStringList parts = time_str.trimmed().split(':');
 
-	if (parts.size() != 2)
-		return 0;
+	if (parts.size() == 2) {
+		bool minutesOk = false;
+		bool secondsOk = false;
+		int minutes = parts[0].toInt(&minutesOk);
+		int seconds = parts[1].toInt(&secondsOk);
+		if (!minutesOk || !secondsOk) {
+			return 0;
+		}
+		return (minutes * 60) + seconds;
+	}
 
-	int minutes = parts[0].toInt();
-	int seconds = parts[1].toInt();
+	if (parts.size() == 3) {
+		bool hoursOk = false;
+		bool minutesOk = false;
+		bool secondsOk = false;
+		int hours = parts[0].toInt(&hoursOk);
+		int minutes = parts[1].toInt(&minutesOk);
+		int seconds = parts[2].toInt(&secondsOk);
+		if (!hoursOk || !minutesOk || !secondsOk) {
+			return 0;
+		}
+		return (hours * 3600) + (minutes * 60) + seconds;
+	}
 
-	return (minutes * 60) + seconds;
+	return 0;
 }
 
 QString HTMLParserHelper::cleanFormat(const QString &str) {
@@ -59,6 +88,10 @@ QString HTMLParserHelper::cleanFormat(const QString &str) {
 }
 
 int HTMLParserHelper::GetNextCount(xmlNodePtr node) {
+	if (!node) {
+		return 0;
+	}
+
 	int count = 0;
 	while ((node = node->next)) {
 		++count;
@@ -83,16 +116,14 @@ xmlNodePtr HTMLParserHelper::TraverseNext(xmlNodePtr In, int depth) {
 }
 
 xmlNodePtr HTMLParserHelper::ToNextTag(xmlNodePtr In, const QString &tag) {
-	do {
+	while (In) {
 		In = In->next;
-		if (In) {
-			if (In->name) {
-				QString name = QString::fromUtf8((const char *) In->name);
-				if (name.contains(tag, Qt::CaseInsensitive)) {
-					return In;
-				}
+		if (In && In->name) {
+			QString name = QString::fromUtf8((const char *) In->name);
+			if (name.contains(tag, Qt::CaseInsensitive)) {
+				return In;
 			}
 		}
-	} while (In);
+	}
 	return nullptr;
 }

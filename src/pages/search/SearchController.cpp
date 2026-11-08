@@ -33,73 +33,106 @@ SearchController::SearchController(QObject *parent) {
 }
 
 void SearchController::doSearch(const QString &query) {
+    // Ignore the response of a previous search that is still in flight.
+    if (m_searchReply) {
+        disconnect(m_searchReply, nullptr, this, nullptr);
+        m_searchReply->abort();
+        m_searchReply->deleteLater();
+        m_searchReply = nullptr;
+    }
+
     emit searchStarted();
     QUrl url(SEARCH_URL + QUrl::toPercentEncoding(query) + "&albumListSize=compact");
     QNetworkRequest request(url);
     QNetworkReply *reply = networkManager->get(request);
+    m_searchReply = reply;
 
-    connect(reply, &QNetworkReply::finished, [this,reply]() {
-        if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "Request failed:" << reply->errorString();
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply != m_searchReply) {
             reply->deleteLater();
             return;
         }
+        m_searchReply = nullptr;
 
-        QString html = reply->readAll();
+        QVector<QSharedPointer<Album> > res;
+
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Request failed:" << reply->errorString();
+            reply->deleteLater();
+            emit searchResultsReceived(res);
+            return;
+        }
+
+        const QByteArray html = reply->readAll();
         reply->deleteLater();
 
-        std::string htmlStr = html.toStdString();
-        htmlDocPtr doc = htmlReadMemory(htmlStr.c_str(), htmlStr.size(), nullptr, nullptr,
+        htmlDocPtr doc = htmlReadMemory(html.constData(), html.size(), nullptr, nullptr,
                                         HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
-        QVector<QSharedPointer<Album> > res;
         if (!doc)
         {
             qWarning() << "HTML read failed";
+            emit searchResultsReceived(res);
+            return;
         }
 
         KhinsiderParser::ParseSearchResults(doc, res);
-        emit searchResultsReceived(res);
         xmlFreeDoc(doc);
+        emit searchResultsReceived(res);
     });
 }
 
 //TODO: Duplicated code! We have this already in DownloadController!
 void SearchController::fetchFullAlbumData(QSharedPointer<Album> album) {
-    if (album->isInfoParsed()) {
+    if (!album || album->isInfoParsed()) {
         return;
     }
+
+    if (m_albumReplies.contains(album.data())) {
+        return;
+    }
+
     QUrl url(album->albumLink());
     QNetworkRequest request(url);
     QNetworkReply *reply = networkManager->get(request);
+    m_albumReplies.insert(album.data(), reply);
 
-    connect(reply, &QNetworkReply::finished, [this,reply,album]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, album]() {
+        if (m_albumReplies.value(album.data()) != reply) {
+            reply->deleteLater();
+            return;
+        }
+        m_albumReplies.remove(album.data());
+
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "Request failed:" << reply->errorString();
+            album->setHasErrors(true);
             reply->deleteLater();
             return;
         }
 
-        QString html = reply->readAll();
+        const QByteArray html = reply->readAll();
         reply->deleteLater();
 
-        std::string htmlStr = html.toStdString();
-        htmlDocPtr doc = htmlReadMemory(htmlStr.c_str(), htmlStr.size(), nullptr, nullptr,
+        htmlDocPtr doc = htmlReadMemory(html.constData(), html.size(), nullptr, nullptr,
                                         HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
 
         if (!doc)
         {
             album->setHasErrors(true);
-            xmlFreeDoc(doc);
             qWarning() << "HTML read failed";
             return;
         }
-        if(!KhinsiderParser::ParseAlbumFullData(doc, album))
+
+        const bool parsed = KhinsiderParser::ParseAlbumFullData(doc, album);
+        xmlFreeDoc(doc);
+
+        if (!parsed)
         {
             album->setHasErrors(true);
-            xmlFreeDoc(doc);
+            return;
         }
+
         ImagePrecache::instance()->precache(album->albumImage());
         emit onFullFetched();
-        xmlFreeDoc(doc);
     });
 }

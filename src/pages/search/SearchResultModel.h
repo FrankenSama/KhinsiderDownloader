@@ -32,6 +32,9 @@ public:
             return QVariant();
 
         auto album = m_albums.at(index.row());
+        if (!album) {
+            return QVariant();
+        }
 
         switch (role) {
             case NameRole:
@@ -87,6 +90,6 @@ signals:
 
 private:
     QVector<QSharedPointer<Album> > m_albums;
-    int m_selectedIndex;
+    int m_selectedIndex = -1;
 };
 #endif //SEARCHRESULTMODEL_H

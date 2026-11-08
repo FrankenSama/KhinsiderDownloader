@@ -4,6 +4,8 @@
 #include <QNetworkRequest>
 #include <QObject>
 #include <QRegularExpression>
+#include <QHash>
+#include <QVector>
 #include "downloader/DownloadManager.h"
 #include "DownloaderModel.h"
 #include "pages/settings/Settings.h"
@@ -14,6 +16,8 @@ class DownloaderController : public QObject {
 
 public:
     explicit DownloaderController(QObject *parent = nullptr, Settings *settings = nullptr);
+
+    ~DownloaderController() override;
 
     void addAlbumToDownload(QSharedPointer<Album> album, DownloadQuality quality);
 
@@ -56,6 +60,8 @@ private:
 
     void downloadSongFile(QSharedPointer<Song> song, DownloadQuality quality, QSharedPointer<Album> album);
 
+    DownloadQuality normalizeQuality(DownloadQuality quality) const;
+
 signals:
     void OnAlbumListUpdated();
 
@@ -70,6 +76,8 @@ private:
     AsyncDownloadManager *m_downloadManager = nullptr;
     Settings *m_settings = nullptr;
     QMap<QSharedPointer<Album>, DownloadQuality> m_addedAlbums;
+    QHash<Album *, WDownloadReplyMemory *> m_albumFetchReplies;
+    QHash<Album *, QVector<WDownloadReplyFile *> > m_artReplies;
 };
 
 

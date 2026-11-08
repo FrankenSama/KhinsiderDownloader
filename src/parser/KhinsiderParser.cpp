@@ -1,7 +1,9 @@
 #include "KhinsiderParser.h"
 
 #include <iostream>
+#include <QSet>
 #include <QSharedPointer>
+#include <QUrl>
 
 #include "Album.h"
 #include "HTMLParserHelper.h"
@@ -27,14 +29,17 @@ auto safeGetProp = [](xmlNodePtr node, const char *propName) -> QString {
 	size_t propLen = xmlStrlen(prop);
 
 	QString result = QString::fromUtf8(reinterpret_cast<const char *>(prop), static_cast<int>(propLen));
-	int newsize = result.size();
 	xmlFree(prop);
 
 	return result;
 };
 
 bool KhinsiderParser::ParseAlbumPage(htmlDocPtr Document, QVector<QSharedPointer<Album> > &Out) {
-	QSharedPointer<Album> Album;
+	if (!Document) {
+		return false;
+	}
+
+	QSharedPointer<Album> Album = QSharedPointer<Album>::create();
 	bool bResult = ParseAlbumFullData(Document, Album);
 	if (!bResult) {
 		return false;
@@ -44,8 +49,15 @@ bool KhinsiderParser::ParseAlbumPage(htmlDocPtr Document, QVector<QSharedPointer
 }
 
 bool KhinsiderParser::ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Album> Out) {
+	if (!Document || !Out) {
+		return false;
+	}
+
 	//don't forget to clean contexts!
 	const xmlXPathContextPtr PathContextPtr = xmlXPathNewContext(Document);
+	if (!PathContextPtr) {
+		return false;
+	}
 
 	auto cleanup = [&](bool success) {
 		xmlXPathFreeContext(PathContextPtr);
@@ -196,7 +208,8 @@ bool KhinsiderParser::ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Alb
 	}
 
 	if (!tableNode->children->next) {
-		cleanup(false);
+		xmlXPathFreeObject(songList);
+		return cleanup(false);
 	}
 
 	const xmlNodePtr SongListHeaderPtr = tableNode->children->next->children;
@@ -282,7 +295,7 @@ bool KhinsiderParser::ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Alb
 			const xmlNodePtr SongFormat = HTMLParserHelper::TraverseNext(SongLength, 2 + (nFormat * 2));
 			if (SongFormat && SongFormat->children && SongFormat->children->children) {
 				QString sizeStr = safeGetContent(SongFormat->children->children);
-				if (!sizeStr.size()) {
+				if (sizeStr.size()) {
 					newSong->addSize(newAlbum->formats()[nFormat], HTMLParserHelper::convertToKB(sizeStr));
 				}
 			}
@@ -294,6 +307,10 @@ bool KhinsiderParser::ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Alb
 }
 
 bool KhinsiderParser::ParseSearchResults(htmlDocPtr Document, QVector<QSharedPointer<Album> > &Out) {
+	if (!Document) {
+		return false;
+	}
+
 	const xmlXPathContextPtr PathContextPtr = xmlXPathNewContext(Document);
 	if (!PathContextPtr) {
 		return false;
@@ -312,22 +329,28 @@ bool KhinsiderParser::ParseSearchResults(htmlDocPtr Document, QVector<QSharedPoi
 	}
 
 	const xmlNodePtr albumNameNode = xpathObj->nodesetval->nodeTab[0];
+	if (!albumNameNode) {
+		xmlXPathFreeObject(xpathObj);
+		return cleanup(false);
+	}
 
 	const xmlNodePtr firstChild = albumNameNode->children;
+	const QString firstContent = safeGetContent(firstChild);
 
-	if (firstChild && xmlNodeGetContent(firstChild) != nullptr
-	    && safeGetContent(firstChild) != "Search") {
+	if (!firstContent.isEmpty() && firstContent != "Search") {
+		xmlXPathFreeObject(xpathObj);
 		return ParseAlbumPage(Document, Out);
 	}
+	xmlXPathFreeObject(xpathObj);
 
 	//Parse album list
 	const xmlXPathObjectPtr albumListObj = xmlXPathEvalExpression(
 		reinterpret_cast<const xmlChar *>("//table[@class='albumList']"), PathContextPtr);
 
 	if (!albumListObj || !albumListObj->nodesetval || albumListObj->nodesetval->nodeNr < 1 ||
-	    !albumListObj->nodesetval->nodeTab[0]->children) {
+	    !albumListObj->nodesetval->nodeTab[0] || !albumListObj->nodesetval->nodeTab[0]->children) {
 		if (albumListObj) xmlXPathFreeObject(albumListObj);
-        return cleanup(false);
+		return cleanup(false);
 	}
 
 	const xmlNodePtr albumListNode = HTMLParserHelper::TraverseNext(albumListObj->nodesetval->nodeTab[0]->children, 3);
@@ -338,45 +361,66 @@ bool KhinsiderParser::ParseSearchResults(htmlDocPtr Document, QVector<QSharedPoi
 		}
 
 		const xmlNodePtr albumIcon = rowNode->children->next->children;
-		for (xmlNode *node = albumIcon->children; node; node = node->next) {
-			if (node && node->type == XML_ELEMENT_NODE && xmlStrEqual(node->name, (const xmlChar *) "img")) {
-				newAlbum->addAlbumImage(safeGetProp(node, "src"));
+		if (albumIcon) {
+			for (xmlNode *node = albumIcon->children; node; node = node->next) {
+				if (node && node->type == XML_ELEMENT_NODE &&
+				    xmlStrEqual(node->name, (const xmlChar *) "img")) {
+					newAlbum->addAlbumImage(safeGetProp(node, "src"));
+				}
 			}
 		}
 
 		const xmlNodePtr albumDataNode = HTMLParserHelper::TraverseNext(rowNode->children, 3);
-		for (xmlNode *node = albumDataNode->children; node; node = node->next) {
-			if (node && node->type == XML_ELEMENT_NODE && xmlStrEqual(node->name, (const xmlChar *) "a")) {
-				newAlbum->setName(safeGetContent(node));
-				newAlbum->setAlbumLink("https://downloads.khinsider.com" + safeGetProp(node, "href"));
+		if (albumDataNode) {
+			for (xmlNode *node = albumDataNode->children; node; node = node->next) {
+				if (node && node->type == XML_ELEMENT_NODE &&
+				    xmlStrEqual(node->name, (const xmlChar *) "a")) {
+					newAlbum->setName(safeGetContent(node));
+					newAlbum->setAlbumLink("https://downloads.khinsider.com" + safeGetProp(node, "href"));
+				}
 			}
 		}
 
 
 		const xmlNodePtr albumPlatformsNode = HTMLParserHelper::TraverseNext(albumDataNode, 2); //5
-		for (xmlNode *node = albumPlatformsNode->children; node; node = node->next) {
-			if (node && node->type == XML_ELEMENT_NODE && xmlStrEqual(node->name, (const xmlChar *) "a")) {
-				newAlbum->addPlatform((safeGetContent(node)));
+		if (albumPlatformsNode) {
+			for (xmlNode *node = albumPlatformsNode->children; node; node = node->next) {
+				if (node && node->type == XML_ELEMENT_NODE &&
+				    xmlStrEqual(node->name, (const xmlChar *) "a")) {
+					newAlbum->addPlatform((safeGetContent(node)));
+				}
 			}
 		}
 
 		const xmlNodePtr albumTypeNode = HTMLParserHelper::TraverseNext(albumPlatformsNode, 2); //2
-		for (xmlNode *node = albumTypeNode->children; node; node = node->next) {
-			newAlbum->setType(safeGetContent(node));
+		if (albumTypeNode) {
+			for (xmlNode *node = albumTypeNode->children; node; node = node->next) {
+				newAlbum->setType(safeGetContent(node));
+			}
 		}
 
 		const xmlNodePtr albumYearNode = HTMLParserHelper::TraverseNext(albumTypeNode, 2); //9
-		for (xmlNode *node = albumYearNode->children; node; node = node->next) {
-			newAlbum->setYear(safeGetContent(node));
+		if (albumYearNode) {
+			for (xmlNode *node = albumYearNode->children; node; node = node->next) {
+				newAlbum->setYear(safeGetContent(node));
+			}
 		}
 		Out.emplace_back(newAlbum);
 	}
+	xmlXPathFreeObject(albumListObj);
 	return cleanup(true);
 }
 
 bool KhinsiderParser::ParsePlaylist(htmlDocPtr Document, QSharedPointer<Album> newAlbum) {
+	if (!Document || !newAlbum) {
+		return false;
+	}
+
 	//don't forget to clean contexts!
 	const xmlXPathContextPtr PathContextPtr = xmlXPathNewContext(Document);
+	if (!PathContextPtr) {
+		return false;
+	}
 
 	auto cleanup = [&](bool success) {
 		xmlXPathFreeContext(PathContextPtr);
@@ -423,7 +467,8 @@ bool KhinsiderParser::ParsePlaylist(htmlDocPtr Document, QSharedPointer<Album> n
 	}
 
 	if (!tableNode->children->next) {
-		cleanup(false);
+		xmlXPathFreeObject(songList);
+		return cleanup(false);
 	}
 
 	const xmlNodePtr SongListHeaderPtr = tableNode->children->next->children;
@@ -496,10 +541,17 @@ bool KhinsiderParser::ParsePlaylist(htmlDocPtr Document, QSharedPointer<Album> n
 		}
 		newAlbum->addSong(newSong);
 	}
+
+	newAlbum->setIsInfoParsed(true);
+	xmlXPathFreeObject(songList);
 	return cleanup(true);
 }
 
 bool KhinsiderParser::ParseDownloadLink(htmlDocPtr Document, QSharedPointer<Song> Out) {
+	if (!Document || !Out) {
+		return false;
+	}
+
 	const xmlXPathContextPtr PathContextPtr = xmlXPathNewContext(Document);
 	if (!PathContextPtr) {
 		return false;
@@ -509,28 +561,58 @@ bool KhinsiderParser::ParseDownloadLink(htmlDocPtr Document, QSharedPointer<Song
 		return success;
 	};
 
-	const xmlXPathObjectPtr xpathObj = xmlXPathEvalExpression(
-		reinterpret_cast<const xmlChar *>("//*[@id='pageContent']/p[4]"), PathContextPtr);
+	static const QSet<QString> audioExtensions = {
+		"MP3", "FLAC", "OGG", "M4A", "AAC", "WAV", "OPUS", "ALAC", "APE", "WMA"
+	};
 
-	if (!xpathObj || !xpathObj->nodesetval || xpathObj->nodesetval->nodeNr < 1) {
-		if (xpathObj) xmlXPathFreeObject(xpathObj);
-		return cleanup(false);
+	auto collectLinks = [&](const char *xpathExpression) -> int {
+		const xmlXPathObjectPtr xpathObj = xmlXPathEvalExpression(
+			reinterpret_cast<const xmlChar *>(xpathExpression), PathContextPtr);
+		if (!xpathObj) {
+			return 0;
+		}
+		if (!xpathObj->nodesetval) {
+			xmlXPathFreeObject(xpathObj);
+			return 0;
+		}
+
+		int collected = 0;
+		for (int i = 0; i < xpathObj->nodesetval->nodeNr; ++i) {
+			xmlNodePtr node = xpathObj->nodesetval->nodeTab[i];
+			if (!node) {
+				continue;
+			}
+
+			QString link = safeGetProp(node, "href").trimmed();
+			if (link.isEmpty()) {
+				continue;
+			}
+
+			QUrl url(link);
+			QString ext = url.path().section('.', -1).trimmed().toUpper();
+			if (!audioExtensions.contains(ext)) {
+				continue;
+			}
+
+			if (url.isRelative()) {
+				link = "https://downloads.khinsider.com" +
+				       (link.startsWith('/') ? link : "/" + link);
+			}
+
+			Out->addDownloadLink(ext, link);
+			++collected;
+		}
+
+		xmlXPathFreeObject(xpathObj);
+		return collected;
+	};
+
+	int collected = collectLinks("//*[@id='pageContent']/p[4]//a[@href]");
+	if (collected == 0) {
+		// The download page layout changes occasionally; fall back to every
+		// audio-looking link inside the content area.
+		collected = collectLinks("//*[@id='pageContent']//a[@href]");
 	}
 
-
-	const xmlNodePtr FirstDownloadLink = xpathObj->nodesetval->nodeTab[0];
-	for (xmlNodePtr DownloadNode = FirstDownloadLink; DownloadNode; DownloadNode = DownloadNode->next) {
-		if (DownloadNode->children && DownloadNode->children->type == XML_ELEMENT_NODE) {
-			const QString link = safeGetProp(DownloadNode->children, "href");
-			QString ext = link.mid(link.lastIndexOf('.') + 1);
-			ext = ext.toUpper(); // Convert to uppercase
-			Out->addDownloadLink(ext, safeGetProp(DownloadNode->children, "href"));
-		}
-		DownloadNode = DownloadNode->next;
-		if (DownloadNode == nullptr) {
-			break;
-		}
-	}
-
-	return cleanup(true);
+	return cleanup(collected > 0);
 }

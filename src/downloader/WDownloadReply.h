@@ -4,6 +4,7 @@
 #include <qfileinfo.h>
 #include <QNetworkReply>
 #include <QObject>
+#include <atomic>
 
 class WDownloadReplyBase : public QObject {
     Q_OBJECT
@@ -22,7 +23,12 @@ public:
     void incrementRetryCount() { currentRetryCount++; }
     void resetRetryCount() { currentRetryCount = 0; }
 
-    bool isCanceled() const { return m_canceled; }
+    bool isCanceled() const { return m_canceled.load(); }
+
+    // A successful transfer must not be removed when the user cancels the
+    // album after the file has already been written.
+    bool isCompleted() const { return m_completed.load(); }
+    void markCompleted() { m_completed.store(true); }
 
     QUrl url() const { return m_url; }
     void setURL(const QUrl &url) { m_url = url; }
@@ -44,8 +50,11 @@ public:
     // Drop anything received so far for good, used when the response turned out to be an HTTP error
     virtual void discardData() = 0;
 
+    // True when writing the received body failed (for example, the disk is full).
+    virtual bool hasWriteError() const { return false; }
+
 public slots:
-    void cancel() { m_canceled = true; }
+    void cancel() { m_canceled.store(true); }
 signals:
     void downloadFinished(QNetworkReply::NetworkError error = QNetworkReply::NoError);
 
@@ -58,7 +67,8 @@ signals:
 protected:
     int maxRetryCount;
     int currentRetryCount;
-    bool m_canceled = false;
+    std::atomic<bool> m_canceled{false};
+    std::atomic<bool> m_completed{false};
     QUrl m_url;
     qint64 m_lastBytesReceived = 0;
     qint64 m_lastSpeedUpdate = 0;
@@ -112,7 +122,7 @@ public:
             m_file.close();
         }
 
-        if (isCanceled()) {
+        if (isCanceled() && !isCompleted()) {
             QFile::remove(m_file.fileName());
         }
     }
@@ -123,22 +133,37 @@ public:
         }
 
         m_file.setFileName(filePath);
+        m_writeError = false;
 
         QDir dir = QFileInfo(filePath).dir();
         if (!dir.exists()) {
             if (!dir.mkpath(".")) {
                 qWarning() << "Failed to create directory in " << dir.path();
-                cancel();
+                return false;
             }
         }
 
-        return m_file.open(QIODevice::WriteOnly | QIODevice::Truncate);
+        if (!m_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            qWarning() << "Failed to open" << filePath << "for writing:" << m_file.errorString();
+            return false;
+        }
+
+        return true;
     }
 
     void appendData(const char *pData, size_t size) override {
-        if (m_file.isOpen()) {
-            m_file.write(pData, size);
+        if (!m_file.isOpen()) {
+            m_writeError = true;
+            return;
         }
+
+        if (m_file.write(pData, static_cast<qint64>(size)) != static_cast<qint64>(size)) {
+            m_writeError = true;
+        }
+    }
+
+    bool hasWriteError() const override {
+        return m_writeError;
     }
 
     void ensureContainerSize(qint64 minsize) override {
@@ -150,6 +175,7 @@ public:
     }
 
     void resetData() override {
+        m_writeError = false;
         if (m_file.isOpen()) {
             m_file.resize(0);
             m_file.seek(0);
@@ -170,5 +196,6 @@ public:
 
 private:
     QFile m_file;
+    bool m_writeError = false;
 };
 #endif //WDOWNLOADREPLY_H

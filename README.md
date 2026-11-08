@@ -36,7 +36,7 @@ If you like KhinsiderDownloader, feel free to leave a star on GitHub to show you
 Manual Building
 
 ```bash
-git clone https://github.com/weespin/KhinsiderDownloader.git --branch experimental
+git clone https://github.com/weespin/KhinsiderDownloader.git --branch master
 cd KhinsiderDownloader
 mkdir build
 cd build
@@ -48,7 +48,7 @@ cmake --build . --config Release
 Automatic Building
 
 ```bash
-git clone https://github.com/weespin/KhinsiderDownloader.git --branch experimental
+git clone https://github.com/weespin/KhinsiderDownloader.git --branch master
 cd KhinsiderDownloader/scripts/windows
 fullbuild.bat
 ```
@@ -68,7 +68,7 @@ fullbuild.bat
 </details>
 
 ```bash
-git clone -b experimental https://github.com/weespin/KhinsiderDownloader.git
+git clone -b master https://github.com/weespin/KhinsiderDownloader.git
 cd KhinsiderDownloader
 mkdir build && cd build
 cmake ..

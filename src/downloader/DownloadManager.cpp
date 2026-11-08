@@ -1,6 +1,9 @@
 #include "DownloadManager.h"
-#include <QDir>
 #include <QEventLoop>
+#include <QSet>
+#include <QTimer>
+#include <algorithm>
+#include <iterator>
 
 AsyncDownloadManager::AsyncDownloadManager(QObject *parent)
 	: QObject(parent), m_limitPerThread(0), m_threadCount(1), m_currentWorkerIndex(0) {
@@ -12,22 +15,31 @@ AsyncDownloadManager::~AsyncDownloadManager() {
 }
 
 void AsyncDownloadManager::setDownloadLimitPerThread(int limit) {
+	// 0 means "no per-worker limit".
+	limit = qMax(0, limit);
+
 	QMutexLocker locker(&m_workersMutex);
+	if (limit == m_limitPerThread) {
+		return;
+	}
 
-	if (limit > 0 && limit != m_limitPerThread) {
-		m_limitPerThread = limit;
-
-		for (auto &worker: m_workers) {
-			worker->setMaxConcurrentDownloads(limit);
-		}
+	m_limitPerThread = limit;
+	for (auto &worker: m_workers) {
+		worker->setMaxConcurrentDownloads(limit);
 	}
 }
 
 void AsyncDownloadManager::setThreadCount(int count) {
+	count = qMax(1, count);
+
+	if (count == m_threadCount) {
+		return;
+	}
+
 	if (count > m_threadCount) {
 		m_threadCount = count;
 		addWorkers();
-	} else if (count < m_threadCount) {
+	} else {
 		m_threadCount = count;
 		reduceWorkers();
 	}
@@ -43,13 +55,25 @@ void AsyncDownloadManager::reduceWorkers() {
 		          return a->activeDownloadCount() < b->activeDownloadCount();
 	          });
 
-	for (int i = 0; i < workersToRemove && i < m_workers.size(); ++i) {
-		QMetaObject::invokeMethod(m_workers[i], "prepareForShutdown", Qt::QueuedConnection);
+	int markedForRemoval = 0;
+	for (DownloadWorker *worker: m_workers) {
+		if (markedForRemoval >= workersToRemove) {
+			break;
+		}
+		if (!worker || worker->IsGracefulStopping()) {
+			continue;
+		}
+		QMetaObject::invokeMethod(worker, "prepareForShutdown", Qt::QueuedConnection);
+		++markedForRemoval;
 	}
 }
 
 void AsyncDownloadManager::addWorkers() {
 	QMutexLocker locker(&m_workersMutex);
+	if (m_shuttingDown) {
+		return;
+	}
+
 	int nNeededWorkers = m_threadCount - m_threads.size();
 	if (nNeededWorkers <= 0) {
 		return;
@@ -57,21 +81,27 @@ void AsyncDownloadManager::addWorkers() {
 
 	for (int i = 0; i < nNeededWorkers; ++i) {
 		auto thread = new QThread();
-		auto worker = new DownloadWorker(i, m_limitPerThread, nullptr);
+		auto worker = new DownloadWorker(m_nextWorkerId++, m_limitPerThread, nullptr);
 
 		worker->moveToThread(thread);
 
 		connect(thread, &QThread::started, worker, &DownloadWorker::start);
 		connect(thread, &QThread::finished, worker, &QObject::deleteLater);
-		connect(thread, &QThread::finished, thread, &QObject::deleteLater);
 		connect(worker, &DownloadWorker::stopped, this, [this, worker, thread]() {
-			QMutexLocker locker(&m_workersMutex);
-			m_workers.removeOne(worker);
-			m_threads.removeOne(thread);
+			{
+				QMutexLocker locker(&m_workersMutex);
+				m_workers.removeOne(worker);
+				m_threads.removeOne(thread);
+			}
 			thread->quit();
+
+			// The user may have raised the thread count while this worker was
+			// shutting down. Re-evaluate the pool once the removal is done.
+			QTimer::singleShot(0, this, [this]() { addWorkers(); });
 		});
 
 		m_threads.append(thread);
+		m_allThreads.append(thread);
 		m_workers.append(worker);
 
 		thread->start();
@@ -82,6 +112,14 @@ DownloadWorker *AsyncDownloadManager::getLeastBusyWorker() {
 	std::vector<DownloadWorker *> activeWorkers;
 	std::copy_if(m_workers.begin(), m_workers.end(), std::back_inserter(activeWorkers),
 	             [](DownloadWorker *w) { return !w->IsGracefulStopping() && w->IsRunning(); });
+
+	if (activeWorkers.empty()) {
+		// During a thread-count reduction every worker may already be marked
+		// for graceful shutdown. They still drain their queues, so use one
+		// instead of dropping the request.
+		std::copy_if(m_workers.begin(), m_workers.end(), std::back_inserter(activeWorkers),
+		             [](DownloadWorker *w) { return w->IsRunning(); });
+	}
 
 	if (activeWorkers.empty()) return nullptr;
 
@@ -94,62 +132,100 @@ DownloadWorker *AsyncDownloadManager::getLeastBusyWorker() {
 }
 
 void AsyncDownloadManager::enqueueDownload(WDownloadReplyBase *downloadable, const QUrl &url) {
-	if (!downloadable || url.isEmpty()) {
+	if (!downloadable) {
 		return;
 	}
 
-	QMutexLocker locker(&m_workersMutex);
+	if (url.isEmpty()) {
+		downloadable->discardData();
+		emit downloadable->downloadFinished(QNetworkReply::ContentNotFoundError);
+		return;
+	}
 
-
-	DownloadWorker *worker = getLeastBusyWorker();
+	DownloadWorker *worker = nullptr;
+	{
+		QMutexLocker locker(&m_workersMutex);
+		worker = getLeastBusyWorker();
+		if (worker) {
+			QMetaObject::invokeMethod(worker, "enqueueDownload",
+			                          Q_ARG(WDownloadReplyBase*, downloadable),
+			                          Q_ARG(QUrl, url));
+		}
+	}
 
 	if (!worker) {
 		qWarning() << "Failed to find an available worker";
-		return;
+		downloadable->discardData();
+		emit downloadable->downloadFinished(QNetworkReply::OperationCanceledError);
 	}
-
-	QMetaObject::invokeMethod(worker, "enqueueDownload",
-	                          Q_ARG(WDownloadReplyBase*, downloadable),
-	                          Q_ARG(QUrl, url));
 }
 
 void AsyncDownloadManager::cleanupWorkers() {
-	if (m_workers.isEmpty()) return;
-
-
-	for (DownloadWorker *worker: m_workers) {
-		QMetaObject::invokeMethod(worker, "stop", Qt::QueuedConnection);
+	QVector<DownloadWorker *> workers;
+	QVector<QThread *> threads;
+	{
+		QMutexLocker locker(&m_workersMutex);
+		m_shuttingDown = true;
+		workers = m_workers;
+		threads = m_allThreads;
 	}
 
+	if (workers.isEmpty() && threads.isEmpty()) return;
 
 	QEventLoop loop;
-	int workersStopped = 0;
-	const int totalWorkers = m_workers.size();
-
-
-	auto onStopped = [&]() {
-		workersStopped++;
-		if (workersStopped == totalWorkers) {
+	QSet<DownloadWorker *> finished;
+	auto markFinished = [&](DownloadWorker *worker) {
+		if (finished.contains(worker)) {
+			return;
+		}
+		finished.insert(worker);
+		if (finished.size() >= workers.size()) {
 			loop.quit();
 		}
 	};
 
-
-	for (DownloadWorker *worker: m_workers) {
-		connect(worker, &DownloadWorker::stopped, &loop, onStopped);
+	for (DownloadWorker *worker: workers) {
+		// Drop the pool bookkeeping connection: it captures the raw thread
+		// pointer and must not run after cleanupWorkers() deleted the thread.
+		disconnect(worker, nullptr, this, nullptr);
+		connect(worker, &DownloadWorker::stopped, &loop, [&, worker]() { markFinished(worker); });
+		if (!worker->IsRunning()) {
+			markFinished(worker);
+		} else {
+			QMetaObject::invokeMethod(worker, "stop", Qt::QueuedConnection);
+		}
 	}
 
-	loop.exec();
+	if (!workers.isEmpty() && finished.size() < workers.size()) {
+		// Never hang application shutdown on a worker that is stuck in libcurl.
+		QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+		loop.exec();
+	}
 
-	for (QThread *thread: m_threads) {
+	QVector<QThread *> threadsToDelete;
+	for (QThread *thread: threads) {
 		thread->quit();
-		if (!thread->wait(2000)) {
+		if (!thread->wait(5000)) {
 			thread->terminate();
+			if (!thread->wait(5000)) {
+				// Deleting a running QThread would crash. Leaking it is the
+				// lesser evil if the OS refuses to terminate the thread.
+				qWarning() << "Download worker thread did not stop";
+				continue;
+			}
 		}
+		threadsToDelete.append(thread);
+	}
+
+	for (QThread *thread: threadsToDelete) {
 		delete thread;
 	}
 
-	m_workers.clear();
-	m_threads.clear();
-	m_currentWorkerIndex = 0;
+	{
+		QMutexLocker locker(&m_workersMutex);
+		m_workers.clear();
+		m_threads.clear();
+		m_allThreads.clear();
+		m_currentWorkerIndex = 0;
+	}
 }

@@ -10,7 +10,15 @@ if(WIN32)
     endif()
 endif()
 
-project(KhinsiderQT VERSION 0.1 LANGUAGES CXX)
+# Keep the CMake project version in sync with the version embedded in the app.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/APP_VERSION" APP_VERSION_FILE)
+string(STRIP "${APP_VERSION_FILE}" APP_VERSION_FILE)
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" APP_VERSION_NUMBER "${APP_VERSION_FILE}")
+if(NOT APP_VERSION_NUMBER)
+    set(APP_VERSION_NUMBER "0.0.0.0")
+endif()
+
+project(KhinsiderQT VERSION ${APP_VERSION_NUMBER} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -146,3 +154,34 @@ install(TARGETS appKhinsiderQT
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+option(KHINSIDER_BUILD_TESTS "Build parser regression tests" OFF)
+if(KHINSIDER_BUILD_TESTS)
+    enable_testing()
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+
+    add_executable(khinsider_parser_tests
+            tests/parser_tests.cpp
+            src/parser/KhinsiderParser.cpp
+            src/parser/HTMLParserHelper.cpp
+            src/parser/Album.cpp
+            src/parser/Album.h
+            src/parser/Song.h
+            src/downloader/WDownloadReply.h
+    )
+
+    target_include_directories(khinsider_parser_tests PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/parser"
+            ${LIBXML2_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(khinsider_parser_tests PRIVATE
+            Qt6::Test
+            Qt6::Network
+            Qt6::Xml
+            LibXml2::LibXml2
+    )
+
+    add_test(NAME parser_tests COMMAND khinsider_parser_tests)
+endif()

@@ -87,3 +87,4 @@ CMakeLists.txt.user*
 
 # VSCode
 .vscode/
+*.code-workspace

@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QDesktopServices>
+#include <QStandardPaths>
 
 LogController &LogController::instance() {
     static LogController instance;
@@ -47,8 +48,11 @@ void LogController::messageHandler(QtMsgType type, const QMessageLogContext &con
             .arg(context.line)
             .arg(context.function);
 
-    if (m_settings && m_settings->enableLogging() && m_logFile.isOpen()) {
-        m_stream << logMsg << Qt::flush;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (m_settings && m_settings->enableLogging() && m_logFile.isOpen()) {
+            m_stream << logMsg << Qt::flush;
+        }
     }
 #ifdef QT_DEBUG
     QTextStream(stderr) << logMsg;
@@ -61,10 +65,9 @@ QString LogController::logPath() const {
 }
 
 QString LogController::logDir() const {
-#ifdef Q_OS_WIN
-    QString path = QCoreApplication::applicationDirPath() + "/logs/";
-#else
-    QString path = QDir::homePath() + "/." + QCoreApplication::applicationName() + "/logs/";
-#endif
-    return path;
+    QString path = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (path.isEmpty()) {
+        path = QCoreApplication::applicationDirPath();
+    }
+    return path + "/logs/";
 }

@@ -24,8 +24,6 @@ public:
 
     void enqueueDownload(WDownloadReplyBase *downloadable, const QUrl &url);
 
-    void cancelDownload(WDownloadReplyBase *downloadable);
-
 private:
     DownloadWorker *getLeastBusyWorker();
 
@@ -34,11 +32,12 @@ private:
     int m_threadCount;
 
     QVector<QThread *> m_threads;
+    QVector<QThread *> m_allThreads;
     QVector<DownloadWorker *> m_workers;
 
     int m_currentWorkerIndex;
-
-    void initWorkers();
+    int m_nextWorkerId = 0;
+    bool m_shuttingDown = false;
 
     void cleanupWorkers();
 

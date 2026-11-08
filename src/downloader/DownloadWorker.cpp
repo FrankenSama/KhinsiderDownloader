@@ -1,12 +1,13 @@
 #include "DownloadWorker.h"
 #include <QDebug>
 #include <QDateTime>
+#include <QVector>
 #include "QTimer"
 #include "QUrl"
 #include <QtNetwork/QNetworkReply>
 
 DownloadWorker::DownloadWorker(int id, int maxConcurrentDownloads, QObject *parent)
-	: QObject(parent), m_id(id), m_maxConcurrentDownloads(maxConcurrentDownloads), m_running(true) {
+	: QObject(parent), m_id(id), m_maxConcurrentDownloads(maxConcurrentDownloads) {
 	m_multiHandle = curl_multi_init();
 	static_assert(std::is_same<decltype(m_activeDownloads)::key_type, CURL *>::value,
 	              "m_activeDownloads key type must be CURL*");
@@ -27,6 +28,18 @@ DownloadWorker::~DownloadWorker() {
 }
 
 void DownloadWorker::enqueueDownload(WDownloadReplyBase *downloadable, const QUrl &url) {
+	if (!downloadable) {
+		return;
+	}
+
+	// A worker that is gracefully stopping still drains the queue it already
+	// accepted; only a fully stopped worker rejects new work.
+	if (!m_running.load()) {
+		downloadable->discardData();
+		emit downloadable->downloadFinished(QNetworkReply::OperationCanceledError);
+		return;
+	}
+
 	qDebug() << "Worker" << m_id << "- Queuing download from:" << url.toString();
 	QMutexLocker locker(&m_queueMutex);
 	downloadable->setURL(url);
@@ -38,19 +51,57 @@ void DownloadWorker::enqueueDownload(WDownloadReplyBase *downloadable, const QUr
 }
 
 void DownloadWorker::stop() {
-	m_running = false;
+	// stop() can be reached from the queued shutdown request, the graceful
+	// shutdown path and the destructor. Only the first call must do the work.
+	bool expected = false;
+	if (!m_stopped.compare_exchange_strong(expected, true)) {
+		return;
+	}
+
+	m_running.store(false);
 	m_queueCondition.wakeAll();
 
+	// Cancel everything that is still waiting so callers do not hang forever.
+	QQueue<WDownloadReplyBase *> pendingQueue;
+	QSet<WDownloadReplyBase *> pendingRetries;
+	{
+		QMutexLocker locker(&m_queueMutex);
+		pendingQueue.swap(m_queue);
+		pendingRetries.swap(m_pendingRetries);
+	}
+	for (WDownloadReplyBase *pending: pendingQueue) {
+		if (pending) {
+			pending->discardData();
+			emit pending->downloadFinished(QNetworkReply::OperationCanceledError);
+		}
+	}
+	for (WDownloadReplyBase *pending: pendingRetries) {
+		if (pending) {
+			pending->discardData();
+			emit pending->downloadFinished(QNetworkReply::OperationCanceledError);
+		}
+	}
+
 	for (auto it = m_activeDownloads.begin(); it != m_activeDownloads.end(); ++it) {
-		curl_multi_remove_handle(m_multiHandle, it.key());
+		if (it.value()) {
+			it.value()->discardData();
+		}
+		if (m_multiHandle) {
+			curl_multi_remove_handle(m_multiHandle, it.key());
+		}
 		curl_easy_cleanup(it.key());
 	}
 	m_activeDownloads.clear();
+	m_activeDownloadCount.store(0);
 
 	emit stopped();
 }
 
 void DownloadWorker::start() {
+	if (m_multiTimer) {
+		return;
+	}
+
 	m_multiTimer = new QTimer(this);
 	connect(m_multiTimer, &QTimer::timeout, this, &DownloadWorker::checkMultiInfo);
 	m_multiTimer->start(m_sleepingMultiInfoTimerInterval);
@@ -61,26 +112,43 @@ void DownloadWorker::start() {
 }
 
 void DownloadWorker::checkQueue() {
-	if (!m_running) return; {
-		QMutexLocker locker(&m_maxConCurrentDownloadsMutex);
-		if (m_maxConcurrentDownloads != 0 && m_activeDownloads.size() >= m_maxConcurrentDownloads) return;
-	}
-	WDownloadReplyBase *request; {
-		QMutexLocker locker(&m_queueMutex);
+	if (!m_running.load()) return;
 
+	{
+		QMutexLocker locker(&m_maxConCurrentDownloadsMutex);
+		if (m_maxConcurrentDownloads > 0 &&
+		    m_activeDownloadCount.load() >= m_maxConcurrentDownloads) {
+			return;
+		}
+	}
+
+	WDownloadReplyBase *request = nullptr;
+	QVector<WDownloadReplyBase *> canceledRequests;
+	{
+		QMutexLocker locker(&m_queueMutex);
 
 		while (!m_queue.isEmpty()) {
 			request = m_queue.head();
-			if (!request || !request->isCanceled()) {
-				break;
+			if (request && request->isCanceled()) {
+				m_queue.dequeue();
+				canceledRequests.append(request);
+				request = nullptr;
+				continue;
 			}
-
-			emit request->downloadFinished(QNetworkReply::OperationCanceledError);
-			m_queue.dequeue();
+			break;
 		}
 
-		if (m_queue.isEmpty()) return;
-		request = m_queue.dequeue();
+		if (m_queue.isEmpty()) {
+			request = nullptr;
+		} else {
+			request = m_queue.dequeue();
+		}
+	}
+
+	// Emit after releasing m_queueMutex: a directly connected slot is allowed
+	// to call back into activeDownloadCount() without deadlocking.
+	for (WDownloadReplyBase *canceled: canceledRequests) {
+		emit canceled->downloadFinished(QNetworkReply::OperationCanceledError);
 	}
 
 	if (request) {
@@ -89,22 +157,31 @@ void DownloadWorker::checkQueue() {
 }
 
 int DownloadWorker::activeDownloadCount() const {
-	return m_queue.size() + m_activeDownloads.size();
+	QMutexLocker locker(&m_queueMutex);
+	return m_queue.size() + m_pendingRetries.size() + m_activeDownloadCount.load();
 }
 
 void DownloadWorker::setMaxConcurrentDownloads(int nMaxDownloads) {
 	QMutexLocker locker(&m_maxConCurrentDownloadsMutex);
-	m_maxConcurrentDownloads = nMaxDownloads;
+	// 0 means unlimited, negative values are invalid.
+	m_maxConcurrentDownloads = qMax(0, nMaxDownloads);
 }
 
 void DownloadWorker::checkMultiInfo() {
-	if (!m_running || !m_multiHandle) {
+	if (!m_running.load() || !m_multiHandle || !m_multiTimer) {
 		return;
 	}
 
-	if (m_gracefulStopping && m_activeDownloads.empty()) {
-		stop();
-		return;
+	if (m_gracefulStopping.load() && m_activeDownloads.empty()) {
+		bool workPending = false;
+		{
+			QMutexLocker locker(&m_queueMutex);
+			workPending = !m_queue.isEmpty() || !m_pendingRetries.isEmpty();
+		}
+		if (!workPending) {
+			stop();
+			return;
+		}
 	}
 
 	int stillRunning = 0;
@@ -154,11 +231,18 @@ void DownloadWorker::checkMultiInfo() {
 }
 
 void DownloadWorker::startDownload(WDownloadReplyBase *request) {
-	if (!request || request->url().isEmpty()) {
+	if (!request) {
+		return;
+	}
+
+	if (request->url().isEmpty()) {
+		request->discardData();
 		emit request->downloadFinished(QNetworkReply::ContentNotFoundError);
+		return;
 	}
 
 	if (request->isCanceled()) {
+		request->discardData();
 		emit request->downloadFinished(QNetworkReply::OperationCanceledError);
 		return;
 	}
@@ -167,6 +251,7 @@ void DownloadWorker::startDownload(WDownloadReplyBase *request) {
 
 	CURL *easyHandle = curl_easy_init();
 	if (!easyHandle) {
+		request->discardData();
 		emit request->downloadFinished(QNetworkReply::UnknownNetworkError);
 		return;
 	}
@@ -181,7 +266,12 @@ void DownloadWorker::startDownload(WDownloadReplyBase *request) {
 	curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, request);
 	curl_easy_setopt(easyHandle, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, request);
-	curl_easy_setopt(easyHandle, CURLOPT_TIMEOUT, 60L);
+	curl_easy_setopt(easyHandle, CURLOPT_NOSIGNAL, 1L);
+	// A fixed total timeout kills large album tracks on slow connections.
+	// Bound connection setup instead, and abort only if the transfer stalls.
+	curl_easy_setopt(easyHandle, CURLOPT_CONNECTTIMEOUT, 30L);
+	curl_easy_setopt(easyHandle, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+	curl_easy_setopt(easyHandle, CURLOPT_LOW_SPEED_TIME, 60L);
 	curl_easy_setopt(easyHandle, CURLOPT_BUFFERSIZE, CURL_MAX_READ_SIZE); // 2MB buffer
 	curl_easy_setopt(easyHandle, CURLOPT_TCP_NODELAY, 1L);
 	curl_easy_setopt(easyHandle, CURLOPT_TCP_KEEPALIVE, 1L);
@@ -196,6 +286,7 @@ void DownloadWorker::startDownload(WDownloadReplyBase *request) {
 	// Add to multi handle
 	CURLMcode mc = curl_multi_add_handle(m_multiHandle, easyHandle);
 	if (mc != CURLM_OK) {
+		request->discardData();
 		emit request->downloadFinished(QNetworkReply::UnknownNetworkError);
 		curl_easy_cleanup(easyHandle);
 		return;
@@ -203,6 +294,7 @@ void DownloadWorker::startDownload(WDownloadReplyBase *request) {
 
 	// Store mappings
 	m_activeDownloads.insert(easyHandle, request);
+	m_activeDownloadCount.fetch_add(1);
 	qDebug() << "Inserting... " << QThread::currentThreadId();
 	//kick multitimer, it has some work
 	QMetaObject::invokeMethod(this, "checkMultiInfo", Qt::QueuedConnection);
@@ -216,6 +308,12 @@ size_t DownloadWorker::writeCallback(char *ptr, size_t size, size_t nmemb, void 
 
 	size_t bytesToWrite = size * nmemb;
 	data->appendData(ptr, bytesToWrite);
+
+	if (data->hasWriteError()) {
+		// Abort the transfer so a full disk does not produce a truncated file
+		// that later looks like a successful download.
+		return 0;
+	}
 
 	return bytesToWrite;
 }
@@ -309,9 +407,12 @@ void DownloadWorker::handleDownloadFinished(WDownloadReplyBase *downloadable, CU
 	} else if (result == CURLE_OK) {
 		qDebug() << "Worker" << m_id << "- Download successful from:" << downloadable->url().toString();
 
+		downloadable->markCompleted();
+
 		// Done, emit finished
 		emit downloadable->downloadFinished(QNetworkReply::NoError);
 	} else if (downloadable->isCanceled()) {
+		downloadable->discardData();
 		emit downloadable->downloadFinished(QNetworkReply::OperationCanceledError);
 	} else {
 		qDebug() << "Worker" << m_id << "- Download failed from:" << downloadable->url().toString()
@@ -319,8 +420,12 @@ void DownloadWorker::handleDownloadFinished(WDownloadReplyBase *downloadable, CU
 
 		QNetworkReply::NetworkError networkError = mapCurlErrorToNetworkError(result);
 
-
-		if (downloadable->getCurrentRetryCount() < downloadable->getMaxRetryCount()) {
+		// A write failure (full disk, removed drive) will not fix itself on
+		// retry, and retrying would just overwrite the same broken file.
+		if (downloadable->hasWriteError()) {
+			downloadable->discardData();
+			emit downloadable->downloadFinished(networkError);
+		} else if (downloadable->getCurrentRetryCount() < downloadable->getMaxRetryCount()) {
 			downloadable->incrementRetryCount();
 			emit downloadable->downloadRetry();
 
@@ -330,23 +435,44 @@ void DownloadWorker::handleDownloadFinished(WDownloadReplyBase *downloadable, CU
 
 			scheduleRetry(downloadable);
 		} else {
+			// Never leave a partial file behind after the final failure.
+			downloadable->discardData();
 			emit downloadable->downloadFinished(networkError);
 		}
 	}
 	m_activeDownloads.remove(easyHandle);
+	m_activeDownloadCount.fetch_sub(1);
 }
 
 void DownloadWorker::scheduleRetry(WDownloadReplyBase *downloadable) {
 	if (!downloadable)
 		return;
 
+	{
+		QMutexLocker locker(&m_queueMutex);
+		m_pendingRetries.insert(downloadable);
+	}
+
 	QTimer *retryTimer = new QTimer(this);
 	retryTimer->setSingleShot(true);
 	connect(retryTimer, &QTimer::timeout, [this, downloadable, retryTimer]() {
+		retryTimer->deleteLater();
+
+		{
+			QMutexLocker locker(&m_queueMutex);
+			if (!m_pendingRetries.remove(downloadable)) {
+				// stop() already reported this request as canceled.
+				return;
+			}
+		}
+
+		if (!m_running.load()) {
+			return;
+		}
+
 		QMutexLocker locker(&m_queueMutex);
 		m_queue.enqueue(downloadable);
 		m_queueCondition.wakeOne();
-		retryTimer->deleteLater();
 
 		// Invoke checkQueue to process the retry immediately
 		QMetaObject::invokeMethod(this, "checkQueue", Qt::QueuedConnection);

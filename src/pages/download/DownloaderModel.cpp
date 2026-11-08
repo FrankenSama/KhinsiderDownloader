@@ -6,14 +6,26 @@ DownloaderModel::DownloaderModel(QObject *parent) : QAbstractListModel(parent) {
 }
 
 int DownloaderModel::rowCount(const QModelIndex &parent) const {
+    Q_UNUSED(parent);
     return m_albums.count();
 }
 
+Album *DownloaderModel::getAlbumAt(int index) const {
+    if (index < 0 || index >= m_albums.size()) {
+        return nullptr;
+    }
+    return m_albums.at(index).data();
+}
+
 QVariant DownloaderModel::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || index.row() >= m_albums.count())
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_albums.count())
         return QVariant();
 
-    auto album = m_albums.at(index.row());
+    const auto &album = m_albums.at(index.row());
+    if (!album) {
+        return QVariant();
+    }
+
     switch (role) {
         case NameRole: return album->name();
         //case StatusRole: return album->status();
@@ -22,7 +34,10 @@ QVariant DownloaderModel::data(const QModelIndex &index, int role) const {
             return (album->downloadedSongs() * 100) / album->totalSongs();
         };
         case SpeedRole: return album->downloadSpeed();
-        case SizeRole: return album->downloadedSongs() / album->totalSongs();
+        case SizeRole: {
+            if (album->totalSongs() == 0) return 0;
+            return album->downloadedSongs() / album->totalSongs();
+        }
         case StateRole: return album->state();
         case DownloadedSongsRole: return album->downloadedSongs();
         case TotalSongsRole: return album->totalSongs();
@@ -45,7 +60,8 @@ QHash<int, QByteArray> DownloaderModel::roleNames() const {
 
 double DownloaderModel::totalProgress() const {
     qint64 totalBytes = 0, downloadedBytes = 0;
-    for (auto *album: m_albums) {
+    for (const auto &album: m_albums) {
+        if (!album) continue;
         // totalBytes += album->totalSize();
         downloadedBytes += album->downloadedSize();
     }
@@ -54,14 +70,17 @@ double DownloaderModel::totalProgress() const {
 
 qint64 DownloaderModel::totalDownloadedSize() const {
     qint64 total = 0;
-    for (auto *album: m_albums) total += album->downloadedSize();
+    for (const auto &album: m_albums) {
+        if (album) total += album->downloadedSize();
+    }
     return total;
 }
 
 qint64 DownloaderModel::totalSpeed() const {
     qint64 total = 0;
-    for (auto *album: m_albums)
-        total += album->downloadSpeed();
+    for (const auto &album: m_albums) {
+        if (album) total += album->downloadSpeed();
+    }
     return total;
 }
 
@@ -73,48 +92,90 @@ qint64 DownloaderModel::totalSize() const {
 
 int DownloaderModel::totalDownloadedSongs() const {
     int total = 0;
-    for (auto *album: m_albums) total += album->downloadedSongs();
+    for (const auto &album: m_albums) {
+        if (album) total += album->downloadedSongs();
+    }
     return total;
 }
 
 int DownloaderModel::totalSongs() const {
     int total = 0;
-    for (auto *album: m_albums) total += album->totalSongs();
+    for (const auto &album: m_albums) {
+        if (album) total += album->totalSongs();
+    }
     return total;
 }
 
 // Slots for canceling
 void DownloaderModel::cancelAllDownloads() {
-    for (auto *Album: m_albums) {
-        emit albumCancelRequested(Album);
-    }
+    const QVector<QSharedPointer<Album> > albums = m_albums;
+
     beginResetModel();
+    for (const auto &album: m_albums) {
+        if (album) {
+            disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+        }
+    }
     m_albums.clear();
     endResetModel();
     emit totalsChanged();
+
+    for (const auto &album: albums) {
+        if (album) {
+            emit albumCancelRequested(album.data());
+        }
+    }
 }
 
 void DownloaderModel::cancelAlbum(int index) {
-    if (index >= 0 && index < m_albums.size())
-        emit albumCancelRequested(m_albums.at(index));
+    if (index < 0 || index >= m_albums.size()) {
+        return;
+    }
+
+    const QSharedPointer<Album> album = m_albums.at(index);
+
     beginResetModel();
+    if (album) {
+        disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+    }
     m_albums.removeAt(index);
     endResetModel();
+
+    if (album) {
+        emit albumCancelRequested(album.data());
+    }
     emit totalsChanged();
 }
 
 void DownloaderModel::retryAlbum(int index) {
-    if (index >= 0 && index < m_albums.size())
-        emit albumRetryRequested(m_albums.at(index));
+    if (index >= 0 && index < m_albums.size() && m_albums.at(index)) {
+        emit albumRetryRequested(m_albums.at(index).data());
+    }
 }
 
 
-void DownloaderModel::setAlbums(const QVector<Album *> &albums) {
+void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
     beginResetModel();
+
+    for (const auto &album: m_albums) {
+        if (album) {
+            disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+        }
+    }
+
     m_albums = albums;
-    for (auto *album: m_albums) {
-        connect(album, &Album::progressUpdated, this, [this, album]() {
-            int row = m_albums.indexOf(album);
+    for (const auto &album: m_albums) {
+        if (!album) continue;
+
+        Album *albumPtr = album.data();
+        connect(albumPtr, &Album::progressUpdated, this, [this, albumPtr]() {
+            int row = -1;
+            for (int i = 0; i < m_albums.size(); ++i) {
+                if (m_albums.at(i).data() == albumPtr) {
+                    row = i;
+                    break;
+                }
+            }
             if (row >= 0) emit dataChanged(index(row), index(row));
             emit totalsChanged();
         });
@@ -122,11 +183,23 @@ void DownloaderModel::setAlbums(const QVector<Album *> &albums) {
     endResetModel();
 }
 
-void DownloaderModel::insertAlbum(Album *album) {
+void DownloaderModel::insertAlbum(const QSharedPointer<Album> &album) {
+    if (!album) {
+        return;
+    }
+
     beginInsertRows(QModelIndex(), m_albums.count(), m_albums.count());
     m_albums.append(album);
-    connect(album, &Album::progressUpdated, this, [this, album]() {
-        int idx = m_albums.indexOf(album);
+
+    Album *albumPtr = album.data();
+    connect(albumPtr, &Album::progressUpdated, this, [this, albumPtr]() {
+        int idx = -1;
+        for (int i = 0; i < m_albums.size(); ++i) {
+            if (m_albums.at(i).data() == albumPtr) {
+                idx = i;
+                break;
+            }
+        }
         if (idx >= 0) {
             emit dataChanged(index(idx), index(idx));
             emit totalsChanged();

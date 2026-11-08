@@ -24,6 +24,6 @@ signals:
     void settingsChanged();
 
 private:
-    Settings *m_Settings;
+    Settings *m_Settings = nullptr;
 };
 #endif //SETTINGSVIEWMODEL_H

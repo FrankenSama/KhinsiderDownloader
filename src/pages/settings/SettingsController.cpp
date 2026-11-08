@@ -1,20 +1,56 @@
 #include "SettingsController.h"
 
-#include <qversionnumber.h>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+
+namespace {
+QString configFilePath() {
+    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configDir.isEmpty()) {
+        configDir = QDir::currentPath();
+    }
+    QDir().mkpath(configDir);
+
+    const QString configPath = configDir + "/config.ini";
+    const QString legacyPath = QDir::currentPath() + "/config.ini";
+
+    // Migrate the old working-directory config once, so existing users keep
+    // their download path and quality settings.
+    if (!QFileInfo::exists(configPath) && QFileInfo::exists(legacyPath)) {
+        if (!QFile::rename(legacyPath, configPath)) {
+            if (QFile::copy(legacyPath, configPath)) {
+                QFile::remove(legacyPath);
+            }
+        }
+    }
+
+    return configPath;
+}
+}
 
 SettingsController::SettingsController(QObject *parent, Settings *settings): QObject(parent),
-                                                                             m_settings("config.ini",
+                                                                             m_settings(configFilePath(),
                                                                                  QSettings::IniFormat) {
     QSettings::setDefaultFormat(QSettings::IniFormat);
     m_SettingsObject = settings;
-    m_SettingsObject->ParseFromConfig(m_settings);
+    if (m_SettingsObject) {
+        m_SettingsObject->ParseFromConfig(m_settings);
+    }
     m_settingsVM = new SettingsViewModel(parent);
     m_settingsVM->setSettingsObject(m_SettingsObject);
-    connect(m_SettingsObject, &Settings::settingsChanged, m_settingsVM, &SettingsViewModel::settingsChanged);
-    connect(m_SettingsObject, &Settings::settingsChanged, this, &SettingsController::saveConfig);
+    if (m_SettingsObject) {
+        connect(m_SettingsObject, &Settings::settingsChanged, m_settingsVM, &SettingsViewModel::settingsChanged);
+        connect(m_SettingsObject, &Settings::settingsChanged, this, &SettingsController::saveConfig);
+    }
 }
 
 void SettingsController::saveConfig() {
+    if (!m_SettingsObject) {
+        return;
+    }
+
     m_settings.setValue("downloadPath", m_SettingsObject->downloadPath());
     m_settings.setValue("enableLogging", m_SettingsObject->enableLogging());
     m_settings.setValue("downloadThreads", m_SettingsObject->downloadThreads());

@@ -6,6 +6,9 @@ on:
       - '*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   prebuild:
     runs-on: ubuntu-latest
@@ -86,7 +89,7 @@ jobs:
           cd ../..
           
       - name: Commit updated APP_VERSION
-        if: steps.check_flags.outputs.skip_version_bump != 'true'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && github.repository == 'weespin/KhinsiderDownloader'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -122,7 +125,7 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
             
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Cache Qt
         uses: actions/cache@v4
@@ -173,7 +176,7 @@ jobs:
       
       - name: Run windeployqt
         run: |
-         &"D:\qt\Qt\6.8.3\msvc2022_64\bin\windeployqt.exe" --qmldir src\ui --no-translations --release --force-openssl build\Release\appKhinsiderQT.exe
+         & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --qmldir src\ui --no-translations --release --force-openssl build\Release\appKhinsiderQT.exe
         
       - name: Download INNO SETUP
         run: |
@@ -203,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Update APP_VERSION file
         run: |
@@ -265,7 +268,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -329,7 +332,7 @@ jobs:
 
       - name: Create Release
         if: steps.check_release.outputs.create_release == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.tag_version }}
           name: "Release: ${{ steps.get_version.outputs.version }}"

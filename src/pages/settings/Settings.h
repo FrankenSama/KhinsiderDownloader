@@ -54,6 +54,11 @@ signals:
 
 public slots:
     void setMaxConcurrentDownloadsPerThread(int maxConcurrentDownloadsPerThread) {
+        // 0 means unlimited; negative values are invalid.
+        maxConcurrentDownloadsPerThread = qBound(0, maxConcurrentDownloadsPerThread, 64);
+        if (m_maxConcurrentDownloadsPerThread == maxConcurrentDownloadsPerThread) {
+            return;
+        }
         m_maxConcurrentDownloadsPerThread = maxConcurrentDownloadsPerThread;
         emit maxConcurrentDownloadsPerThreadChanged();
         emit settingsChanged();
@@ -73,6 +78,9 @@ public slots:
     }
 
     void setDownloadPath(const QString &downloadPath) {
+        if (downloadPath.isEmpty()) {
+            return;
+        }
         if (downloadPath != m_downloadPath) {
             const QUrl url(downloadPath);
             if (url.isLocalFile()) {
@@ -95,6 +103,7 @@ public slots:
     }
 
     void setDownloadThreads(int downloadThreads) {
+        downloadThreads = qBound(1, downloadThreads, 64);
         if (downloadThreads != m_downloadThreads) {
             m_downloadThreads = downloadThreads;
             emit downloadThreadsChanged();
@@ -103,15 +112,15 @@ public slots:
     }
 
     void setPreferredAudioQualityInt(int preferredAudioQualityInt) {
-        auto preferredAudioQuality = static_cast<DownloadQuality>(preferredAudioQualityInt);
-        if (preferredAudioQuality != m_preferredAudioQuality) {
-            m_preferredAudioQuality = preferredAudioQuality;
-            emit preferredAudioQualityChanged();
-            emit settingsChanged();
-        }
+        setPreferredAudioQuality(static_cast<DownloadQuality>(
+            qBound(0, preferredAudioQualityInt, static_cast<int>(DownloadQuality::BEST))));
     }
 
     void setPreferredAudioQuality(DownloadQuality preferredAudioQuality) {
+        if (preferredAudioQuality != DownloadQuality::MP3 &&
+            preferredAudioQuality != DownloadQuality::BEST) {
+            preferredAudioQuality = DownloadQuality::MP3;
+        }
         if (preferredAudioQuality != m_preferredAudioQuality) {
             m_preferredAudioQuality = preferredAudioQuality;
             emit preferredAudioQualityChanged();
@@ -122,10 +131,10 @@ public slots:
 private:
     QString m_downloadPath;
     bool m_downloadArt = false;
-    bool m_enableLogging;
+    bool m_enableLogging = true;
     int m_maxConcurrentDownloadsPerThread = 5;
     int m_downloadThreads = 1;
-    DownloadQuality m_preferredAudioQuality;
+    DownloadQuality m_preferredAudioQuality = DownloadQuality::MP3;
     bool m_skipDownloaded = true;
 };
 

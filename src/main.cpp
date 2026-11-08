@@ -21,8 +21,10 @@ public:
 };
 
 int main(int argc, char *argv[]) {
-    curl_global_init(CURL_GLOBAL_ALL);
-    NetworkManagerFactory *networkManagerFactory = new NetworkManagerFactory();
+    if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
+        return -1;
+    }
+
     QCoreApplication::setOrganizationName("Weespin");
     QCoreApplication::setApplicationName("KhinsiderDownloader");
 
@@ -33,28 +35,33 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<SettingsViewModel>("App.ViewModels", 1, 0, "SettingsViewModel");
     qmlRegisterType<DownloaderModel>("App.Models", 1, 0, "DownloaderModel");
 
+    int result = 0;
+    {
+        // App must be destroyed before curl_global_cleanup(), because the
+        // download workers and their libcurl handles are owned by it.
+        App kApp;
 
-    App *kApp = new App();
+        // The factory has to outlive the engine that references it.
+        NetworkManagerFactory networkManagerFactory;
+        QQmlApplicationEngine engine;
+        QNetworkAccessManager *globalManager = networkManagerFactory.create(&engine);
+        engine.setNetworkAccessManagerFactory(&networkManagerFactory);
 
-    QQmlApplicationEngine engine;
-    QNetworkAccessManager *globalManager = networkManagerFactory->create(&engine);
-    engine.setNetworkAccessManagerFactory(networkManagerFactory);
+        //Move it somewhere, wtf it's doing here
+        auto *precache = new ImagePrecache(globalManager, &engine);
 
-    //Move it somewhere, wtf it's doing here
-    auto *precache = new ImagePrecache(globalManager, &engine);
+        engine.rootContext()->setContextProperty("app", &kApp);
+        QObject::connect(
+            &engine,
+            &QQmlApplicationEngine::objectCreationFailed,
+            &app,
+            []() { QCoreApplication::exit(-1); },
+            Qt::QueuedConnection);
 
-    engine.rootContext()->setContextProperty("app", kApp);
-    QObject::connect(
-        &engine,
-        &QQmlApplicationEngine::objectCreationFailed,
-        &app,
-        []() { QCoreApplication::exit(-1); },
-        Qt::QueuedConnection);
+        engine.loadFromModule("KhinsiderQT", "Main");
+        result = app.exec();
+    }
 
-    engine.loadFromModule("KhinsiderQT", "Main");
-    int result = app.exec();
-
-    // Clean up curl???
     curl_global_cleanup();
 
     return result;
