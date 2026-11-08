@@ -20,7 +20,7 @@ Rectangle {
     UpdateCheckerDialog {
         id: messageDialog
         onAccepted: {
-            Qt.openUrlExternally("https://github.com/weespin/KhinsiderDownloader/releases")
+            Qt.openUrlExternally("https://github.com/FrankenSama/KhinsiderDownloader/releases")
         }
         Component.onCompleted: visible = false
     }

@@ -1,8 +1,8 @@
 # KhinsiderDownloader 🎵 
 ### A simple Bulk Khinsider downloader with GUI
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Github Downloads (total)](https://img.shields.io/github/downloads/weespin/KhinsiderDownloader/total.svg)](https://tooomm.github.io/github-release-stats/?username=weespin&repository=KhinsiderDownloader)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/weespin/KhinsiderDownloader/build.yml)
+[![Github Downloads (total)](https://img.shields.io/github/downloads/FrankenSama/KhinsiderDownloader/total.svg)](https://tooomm.github.io/github-release-stats/?username=FrankenSama&repository=KhinsiderDownloader)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/FrankenSama/KhinsiderDownloader/build.yml)
 # Screenshots
 ![Screenshot](https://weesp.in/i/309ce634ce4115ee.png)
 
@@ -16,9 +16,9 @@
 
 ## 📥 Download
 
--   [Latest Release (Windows & Linux)](https://github.com/weespin/KhinsiderDownloader/releases) 
+-   [Latest Release (Windows & Linux)](https://github.com/FrankenSama/KhinsiderDownloader/releases) 
     
--   [Windows/Linux Nightly Builds (Artifact)](https://nightly.link/weespin/KhinsiderDownloader/workflows/build/master)
+-   [Windows/Linux Nightly Builds (Artifact)](https://nightly.link/FrankenSama/KhinsiderDownloader/workflows/build/master)
 
 ## 🌟 Star the Project
 If you like KhinsiderDownloader, feel free to leave a star on GitHub to show your support!
@@ -36,7 +36,7 @@ If you like KhinsiderDownloader, feel free to leave a star on GitHub to show you
 Manual Building
 
 ```bash
-git clone https://github.com/weespin/KhinsiderDownloader.git --branch master
+git clone https://github.com/FrankenSama/KhinsiderDownloader.git --branch master
 cd KhinsiderDownloader
 mkdir build
 cd build
@@ -48,7 +48,7 @@ cmake --build . --config Release
 Automatic Building
 
 ```bash
-git clone https://github.com/weespin/KhinsiderDownloader.git --branch master
+git clone https://github.com/FrankenSama/KhinsiderDownloader.git --branch master
 cd KhinsiderDownloader/scripts/windows
 fullbuild.bat
 ```
@@ -68,7 +68,7 @@ fullbuild.bat
 </details>
 
 ```bash
-git clone -b master https://github.com/weespin/KhinsiderDownloader.git
+git clone -b master https://github.com/FrankenSama/KhinsiderDownloader.git
 cd KhinsiderDownloader
 mkdir build && cd build
 cmake ..
@@ -105,7 +105,7 @@ If you want to contribute code:
 5.  Create a Pull Request
 
 Found a bug?
- 👉 [Open an Issue here](https://github.com/weespin/KhinsiderDownloader/issues)
+ 👉 [Open an Issue here](https://github.com/FrankenSama/KhinsiderDownloader/issues)
 
 ## ⚖️ Legal Disclaimer and Copyright Notice
 

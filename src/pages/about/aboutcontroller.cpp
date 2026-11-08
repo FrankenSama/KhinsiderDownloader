@@ -46,7 +46,7 @@ bool AboutController::isNewVersion(const QString &latestVersion, const QString &
 void AboutController::checkForUpdates() {
     QString currentVersion = m_version;
 
-    QNetworkRequest request(QUrl("https://api.github.com/repos/weespin/KhinsiderDownloader/releases"));
+    QNetworkRequest request(QUrl("https://api.github.com/repos/FrankenSama/KhinsiderDownloader/releases"));
     request.setHeader(QNetworkRequest::UserAgentHeader, "KhinsiderDownloader");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
