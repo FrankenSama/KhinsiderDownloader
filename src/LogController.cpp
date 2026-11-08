@@ -17,8 +17,8 @@ LogController::LogController(QObject *parent)
     QDir().mkpath(logDirectory);
 
     m_logFile.setFileName(logDirectory + "app.log");
-    m_logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
-    m_stream.setDevice(&m_logFile);
+    const bool logFileOpened = m_logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    m_stream.setDevice(logFileOpened ? &m_logFile : nullptr);
 }
 
 LogController::~LogController() {

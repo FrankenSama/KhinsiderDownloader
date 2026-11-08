@@ -39,12 +39,12 @@ bool KhinsiderParser::ParseAlbumPage(htmlDocPtr Document, QVector<QSharedPointer
 		return false;
 	}
 
-	QSharedPointer<Album> Album = QSharedPointer<Album>::create();
-	bool bResult = ParseAlbumFullData(Document, Album);
+	QSharedPointer<Album> album = QSharedPointer<Album>::create();
+	bool bResult = ParseAlbumFullData(Document, album);
 	if (!bResult) {
 		return false;
 	}
-	Out.push_back(Album);
+	Out.push_back(album);
 	return true;
 }
 
