@@ -88,3 +88,6 @@ CMakeLists.txt.user*
 # VSCode
 .vscode/
 *.code-workspace
+
+# aqtinstall log
+aqtinstall.log
