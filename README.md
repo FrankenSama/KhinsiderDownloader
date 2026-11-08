@@ -29,7 +29,7 @@ If you like KhinsiderDownloader, feel free to leave a star on GitHub to show you
 #### Requirements
 
 -  🛠️ CMake 3.16+
--  🖼️ Qt >=6.8.3  
+-  🖼️ Qt >=6.12.0  
 -  🧰 Visual Studio 2022
 -  📦 VCPKG (clone manually, preferred at `C:\vcpkg` for automatic builds. Don’t forget to run `bootstrap-vcpkg.bat`)
 
@@ -57,7 +57,7 @@ fullbuild.bat
 #### Requirements
 
 -  🛠️ CMake 3.16+
--  🖼️ Qt >=6.8.3
+-  🖼️ Qt >=6.12.0
   
 <details>
  <summary>Prerequisites for debian</summary>

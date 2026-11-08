@@ -135,14 +135,17 @@ jobs:
           restore-keys: |
             windows-qt-
 
-      - name: Install Qt 6.8.3
+      - name: Install Qt 6.12.0
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: '6.12.0'
           target: 'desktop'
           dir: '${{ env.TEMP }}\qt'
           modules: 'qt5compat qtshadertools'
           arch: 'win64_msvc2022_64'
+          # aqtinstall 3.3.0 (the action's default) cannot resolve the per-arch
+          # repository layout Qt uses since 6.11; this upstream commit adds it.
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7'
 
       - name: Cache CMake dependencies
         uses: actions/cache@v4
@@ -224,10 +227,13 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: '6.12.0'
           target: 'desktop'
           dir: '${{ runner.temp }}/qt'
           modules: 'qt5compat qtshadertools'
+          # aqtinstall 3.3.0 (the action's default) cannot resolve the per-arch
+          # repository layout Qt uses since 6.11; this upstream commit adds it.
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7'
 
       - name: Cache CMake dependencies
         uses: actions/cache@v4
