@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   prebuild:
     runs-on: ubuntu-latest
@@ -25,6 +29,12 @@ jobs:
         run: |
           MESSAGE=$(git log -1 --pretty=%B)
           echo "Last commit message: $MESSAGE"
+          
+          if echo "$MESSAGE" | grep -qE "\[RELEASE\]|\[PRE-RELEASE\]"; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
           
           if echo "$MESSAGE" | grep -qE "\[skip-ci\]|\[no-ci\]"; then
             echo "Detected skip CI flag, setting both platforms to false"
@@ -51,7 +61,7 @@ jobs:
           fi
       
       - name: Increment APP_VERSION
-        if: steps.check_flags.outputs.skip_version_bump != 'true'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true'
         id: version_bump
         run: |
           VERSION=$(cat APP_VERSION)
@@ -82,26 +92,26 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
       
       - name: Bump resource.rc
-        if: steps.check_flags.outputs.skip_version_bump != 'true'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true'
         run: |
           cd scripts/shared
           python3 updateversion.py
           cd ../..
           
       - name: Commit updated APP_VERSION
-        if: steps.check_flags.outputs.skip_version_bump != 'true' && github.repository == 'FrankenSama/KhinsiderDownloader'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true' && github.repository == 'FrankenSama/KhinsiderDownloader'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add APP_VERSION
           git add resource.rc
-          git commit -m "ci: bump version"
+          git commit -m "ci: bump version [skip ci]"
           git push
       
       - name: Get Version
         id: get_version
         run: |
-          if [ "${{ steps.check_flags.outputs.skip_version_bump }}" != "true" ] && [ -n "${{ steps.version_bump.outputs.new_version }}" ]; then
+          if [ "${{ steps.check_flags.outputs.is_release }}" == "true" ] && [ "${{ steps.check_flags.outputs.skip_version_bump }}" != "true" ] && [ -n "${{ steps.version_bump.outputs.new_version }}" ]; then
             echo "version=${{ steps.version_bump.outputs.new_version }}" >> $GITHUB_OUTPUT
           else
             echo "version=$(cat APP_VERSION)" >> $GITHUB_OUTPUT
