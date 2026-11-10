@@ -3,7 +3,10 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QTimer>
 #include <QUrl>
+
+#include "KhinsiderRequest.h"
 
 static const QMap<QString, int> qualityRanking = {
     {"FLAC", 4},
@@ -18,6 +21,7 @@ DownloaderController::DownloaderController(QObject *parent, Settings *settings)
     // a child of the controller guarantees that its cleanup runs first, and
     // replies parented to the manager are released after the workers stopped.
     m_downloadManager = new AsyncDownloadManager(this);
+    m_http = new QNetworkAccessManager(this);
     m_Model = new DownloaderModel(this);
     connect(m_Model, &DownloaderModel::addToDownloadList, this, &DownloaderController::addToDownloadList);
     connect(m_Model, &DownloaderModel::albumCancelRequested, this, &DownloaderController::cancelAlbum);
@@ -64,6 +68,45 @@ void DownloaderController::addAlbumToDownload(QSharedPointer<Album> album, Downl
     m_addedAlbums[album] = normalizeQuality(quality);
 }
 
+void DownloaderController::fetchPage(
+    const QUrl &url,
+    std::function<void(QNetworkReply::NetworkError, const QByteArray &)> onFinished,
+    int attemptsLeft) {
+    QNetworkReply *reply = m_http->get(khinsiderRequest(url));
+
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, url, onFinished, attemptsLeft]() {
+                const QNetworkReply::NetworkError error = reply->error();
+                const int status =
+                    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                const QByteArray body = reply->readAll();
+                reply->deleteLater();
+
+                if (error == QNetworkReply::NoError) {
+                    onFinished(error, body);
+                    return;
+                }
+
+                // Retry once on a transient failure. A 403 is the Cloudflare
+                // challenge and a 404 will not get better either, so both are
+                // reported immediately.
+                const bool worthRetrying =
+                    error != QNetworkReply::OperationCanceledError && status != 403 &&
+                    status != 404;
+                if (worthRetrying && attemptsLeft > 1) {
+                    qWarning() << "Retrying" << url.toString() << "after" << reply->errorString();
+                    QTimer::singleShot(600, this, [this, url, onFinished, attemptsLeft]() {
+                        fetchPage(url, onFinished, attemptsLeft - 1);
+                    });
+                    return;
+                }
+
+                qWarning() << "Request failed:" << url.toString() << reply->errorString()
+                           << "status" << status;
+                onFinished(error, body);
+            });
+}
+
 void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
     if (!album || album->isInfoParsed()) {
         return;
@@ -71,62 +114,54 @@ void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
 
     // Avoid starting a second request for an album whose metadata is already
     // being fetched (for example when the user clicks retry twice).
-    if (m_albumFetchReplies.contains(album.data())) {
+    if (m_albumsBeingFetched.contains(album.data())) {
         return;
     }
+    m_albumsBeingFetched.insert(album.data());
 
-    WDownloadReplyMemory *reply = new WDownloadReplyMemory(m_downloadManager);
-    m_albumFetchReplies.insert(album.data(), reply);
+    fetchPage(QUrl(album->albumLink()),
+              [this, album](QNetworkReply::NetworkError error, const QByteArray &body) {
+                  m_albumsBeingFetched.remove(album.data());
 
-    connect(reply, &WDownloadReplyMemory::downloadFinished, this,
-            [this, reply, album](QNetworkReply::NetworkError error) {
-                if (m_albumFetchReplies.value(album.data()) == reply) {
-                    m_albumFetchReplies.remove(album.data());
-                }
-                reply->deleteLater();
+                  // The album was canceled while the metadata request was in
+                  // flight. Do not resurrect it in m_addedAlbums.
+                  auto albumIt = m_addedAlbums.constFind(album);
+                  if (albumIt == m_addedAlbums.constEnd()) {
+                      return;
+                  }
 
-                // The album was canceled while the metadata request was in
-                // flight. Do not resurrect it in m_addedAlbums.
-                auto albumIt = m_addedAlbums.constFind(album);
-                if (albumIt == m_addedAlbums.constEnd()) {
-                    return;
-                }
+                  if (error == QNetworkReply::OperationCanceledError) {
+                      return;
+                  }
+                  if (error != QNetworkReply::NoError) {
+                      album->setHasErrors(true);
+                      return;
+                  }
 
-                if (error == QNetworkReply::OperationCanceledError) {
-                    return;
-                }
-                if (error != QNetworkReply::NoError) {
-                    album->setHasErrors(true);
-                    return;
-                }
+                  htmlDocPtr doc = htmlReadMemory(body.constData(), body.size(), nullptr,
+                                                  nullptr,
+                                                  HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+                  if (!doc) {
+                      qWarning() << "HTML read failed";
+                      album->setHasErrors(true);
+                      return;
+                  }
 
-                htmlDocPtr doc = htmlReadMemory(reply->getData(),
-                                                reply->getData().size(),
-                                                nullptr, nullptr,
-                                                HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
-                if (!doc) {
-                    qWarning() << "HTML read failed";
-                    album->setHasErrors(true);
-                    return;
-                }
+                  bool parsed = false;
+                  if (album->isPlaylist()) {
+                      parsed = KhinsiderParser::ParsePlaylist(doc, album);
+                  } else {
+                      parsed = KhinsiderParser::ParseAlbumFullData(doc, album);
+                  }
+                  xmlFreeDoc(doc);
 
-                bool parsed = false;
-                if (album->isPlaylist()) {
-                    parsed = KhinsiderParser::ParsePlaylist(doc, album);
-                } else {
-                    parsed = KhinsiderParser::ParseAlbumFullData(doc, album);
-                }
-                xmlFreeDoc(doc);
+                  if (!parsed) {
+                      album->setHasErrors(true);
+                      return;
+                  }
 
-                if (!parsed) {
-                    album->setHasErrors(true);
-                    return;
-                }
-
-                onAlbumDataFetched(album, albumIt.value());
-            }, Qt::QueuedConnection);
-
-    m_downloadManager->enqueueDownload(reply, album->albumLink());
+                  onAlbumDataFetched(album, albumIt.value());
+              });
 }
 
 
@@ -254,10 +289,9 @@ void DownloaderController::cancelAlbum(Album *album) {
         return;
     }
 
-    if (WDownloadReplyMemory *fetchReply = m_albumFetchReplies.value(album)) {
-        fetchReply->cancel();
-        m_albumFetchReplies.remove(album);
-    }
+    // Any in-flight metadata request notices the album is gone from
+    // m_addedAlbums when it finishes and discards its result.
+    m_albumsBeingFetched.remove(album);
 
     auto artIt = m_artReplies.find(album);
     if (artIt != m_artReplies.end()) {
@@ -351,65 +385,47 @@ void DownloaderController::fetchSongDownloadLinks(QSharedPointer<Song> song, Dow
         return;
     }
 
-    WDownloadReplyMemory *songDownloadListReply = new WDownloadReplyMemory(m_downloadManager);
+    fetchPage(QUrl("https://downloads.khinsider.com" + song->songLink()),
+              [this, song, quality, album](QNetworkReply::NetworkError error,
+                                           const QByteArray &body) {
+                  if (error == QNetworkReply::OperationCanceledError) {
+                      return;
+                  }
 
-    connect(songDownloadListReply, &WDownloadReplyMemory::downloadFinished, this,
-            [this, song, quality, album, songDownloadListReply](QNetworkReply::NetworkError error) {
-                if(error == QNetworkReply::OperationCanceledError)
-                {
-                    songDownloadListReply->deleteLater();
-                    return;
-                }
+                  if (m_addedAlbums.constFind(album) == m_addedAlbums.constEnd()) {
+                      return;
+                  }
 
-                if (m_addedAlbums.constFind(album) == m_addedAlbums.constEnd()) {
-                    songDownloadListReply->deleteLater();
-                    return;
-                }
+                  if (error != QNetworkReply::NoError) {
+                      album->setHasErrors(true);
+                      song->setErrored(true);
 
-                if (error != QNetworkReply::NoError) {
-                    album->setHasErrors(true);
-                    song->setErrored(true);
+                      qWarning() << "Request failed parsing song download links";
+                      return;
+                  }
 
-                    qWarning() << "Request failed parsing song download links";
-                    songDownloadListReply->deleteLater();
-                    return;
-                }
+                  htmlDocPtr doc = htmlReadMemory(body.constData(), body.size(), nullptr,
+                                                  nullptr,
+                                                  HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+                  if (!doc) {
+                      qWarning() << "HTML read failed while parsing song download links";
+                      song->setErrored(true);
+                      album->setHasErrors(true);
+                      return;
+                  }
 
-                htmlDocPtr doc = htmlReadMemory(songDownloadListReply->getData(),
-                                                songDownloadListReply->getData().size(),
-                                                nullptr, nullptr,
-                                                HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
-                if (!doc) {
-                    qWarning() << "HTML read failed while parsing song download links";
-                    song->setErrored(true);
-                    album->setHasErrors(true);
-                    songDownloadListReply->deleteLater();
-                    return;
-                }
+                  if (!KhinsiderParser::ParseDownloadLink(doc, song)) {
+                      song->setErrored(true);
+                      album->setHasErrors(true);
+                      xmlFreeDoc(doc);
+                      return;
+                  }
+                  xmlFreeDoc(doc);
 
-                if(!KhinsiderParser::ParseDownloadLink(doc, song))
-                {
-                    song->setErrored(true);
-                    album->setHasErrors(true);
-                    xmlFreeDoc(doc);
-                    songDownloadListReply->deleteLater();
-                    return;
-                }
-                xmlFreeDoc(doc);
+                  song->setAllDownloadLinksParsed(true);
 
-                song->setAllDownloadLinksParsed(true);
-
-                onSongLinksFound(song, quality, album);
-                songDownloadListReply->deleteLater();
-            }, Qt::QueuedConnection);
-
-    connect(song.get(), &Song::wantToCancel, songDownloadListReply, &WDownloadReplyMemory::cancel,
-            Qt::QueuedConnection);
-
-    m_downloadManager->enqueueDownload(
-        songDownloadListReply,
-        "https://downloads.khinsider.com" + song.get()->songLink()
-        );
+                  onSongLinksFound(song, quality, album);
+              });
 }
 
 void DownloaderController::onSongLinksFound(QSharedPointer<Song> song, DownloadQuality quality,

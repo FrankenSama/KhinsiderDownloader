@@ -6,6 +6,8 @@
 #include "QUrl"
 #include <QtNetwork/QNetworkReply>
 
+#include "KhinsiderRequest.h"
+
 DownloadWorker::DownloadWorker(int id, int maxConcurrentDownloads, QObject *parent)
 	: QObject(parent), m_id(id), m_maxConcurrentDownloads(maxConcurrentDownloads) {
 	m_multiHandle = curl_multi_init();
@@ -262,6 +264,7 @@ void DownloadWorker::startDownload(WDownloadReplyBase *request) {
 
 	// Set options
 	curl_easy_setopt(easyHandle, CURLOPT_URL, request->url().toEncoded().constData());
+	curl_easy_setopt(easyHandle, CURLOPT_USERAGENT, khinsiderUserAgent().constData());
 	curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, writeCallback);
 	curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, request);
 	curl_easy_setopt(easyHandle, CURLOPT_FOLLOWLOCATION, 1L);

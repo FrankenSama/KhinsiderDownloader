@@ -6,6 +6,7 @@
 #include <libxml/xpath.h>
 
 #include "ImagePrecache.h"
+#include "KhinsiderRequest.h"
 #include "parser/KhinsiderParser.h"
 
 #define SEARCH_URL "https://downloads.khinsider.com/search?search="
@@ -45,7 +46,7 @@ void SearchController::doSearch(const QString &query) {
 
     emit searchStarted();
     QUrl url(SEARCH_URL + QUrl::toPercentEncoding(query) + "&albumListSize=compact");
-    QNetworkRequest request(url);
+    QNetworkRequest request = khinsiderRequest(url);
     QNetworkReply *reply = networkManager->get(request);
     m_searchReply = reply;
 
@@ -59,8 +60,8 @@ void SearchController::doSearch(const QString &query) {
         QVector<QSharedPointer<Album> > res;
 
         if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "Request failed:" << reply->errorString();
-            const QString message = reply->errorString();
+            qWarning() << "Search request failed:" << reply->errorString();
+            const QString message = describeKhinsiderError(reply);
             reply->deleteLater();
             emit searchFailed(message);
             return;
@@ -95,7 +96,7 @@ void SearchController::fetchFullAlbumData(QSharedPointer<Album> album) {
     }
 
     QUrl url(album->albumLink());
-    QNetworkRequest request(url);
+    QNetworkRequest request = khinsiderRequest(url);
     QNetworkReply *reply = networkManager->get(request);
     m_albumReplies.insert(album.data(), reply);
 
@@ -107,7 +108,7 @@ void SearchController::fetchFullAlbumData(QSharedPointer<Album> album) {
         m_albumReplies.remove(album.data());
 
         if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "Request failed:" << reply->errorString();
+            qWarning() << "Album request failed:" << reply->errorString();
             album->setHasErrors(true);
             reply->deleteLater();
             return;
