@@ -19,9 +19,18 @@
 
 ## 📥 Download
 
--   [Latest Release (Windows & Linux)](https://github.com/FrankenSama/KhinsiderDownloader/releases) 
+-   [Latest Stable Release (Windows & Linux)](https://github.com/FrankenSama/KhinsiderDownloader/releases) 
     
--   [Windows/Linux Nightly Builds (Artifact)](https://nightly.link/FrankenSama/KhinsiderDownloader/workflows/build/master)
+-   [Nightly Development Builds (Artifact)](https://nightly.link/FrankenSama/KhinsiderDownloader/workflows/build/dev)
+
+### 🔀 Release Channels
+
+| Channel | Branch | Description |
+|---|---|---|
+| **Stable** | `master` | Tested releases, cut from `master`. Recommended for normal use. |
+| **Nightly** | `dev` | Latest development builds from `dev`. May be unstable or broken. |
+
+Development happens on `dev`; changes are merged into `master` only when they are ready for a stable release.
 
 ## 🌟 Star the Project
 If you like KhinsiderDownloader, feel free to leave a star on GitHub to show your support!

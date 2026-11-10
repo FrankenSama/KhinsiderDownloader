@@ -61,7 +61,7 @@ jobs:
           fi
       
       - name: Increment APP_VERSION
-        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true' && github.ref == 'refs/heads/master'
         id: version_bump
         run: |
           VERSION=$(cat APP_VERSION)
@@ -92,14 +92,14 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
       
       - name: Bump resource.rc
-        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true' && github.ref == 'refs/heads/master'
         run: |
           cd scripts/shared
           python3 updateversion.py
           cd ../..
           
       - name: Commit updated APP_VERSION
-        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true' && github.repository == 'FrankenSama/KhinsiderDownloader'
+        if: steps.check_flags.outputs.skip_version_bump != 'true' && steps.check_flags.outputs.is_release == 'true' && github.ref == 'refs/heads/master' && github.repository == 'FrankenSama/KhinsiderDownloader'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -291,6 +291,12 @@ jobs:
       - name: Check for RELEASE or PRE-RELEASE in commit message
         id: check_release
         run: |
+          if [ "${{ github.ref }}" != "refs/heads/master" ]; then
+            echo "Not on master; stable releases are only cut from master"
+            echo "create_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           COMMIT_MESSAGE=$(git log -2 --pretty=%B)
           if echo "$COMMIT_MESSAGE" | grep -q "\[RELEASE\]"; then
             echo "create_release=true" >> $GITHUB_OUTPUT
