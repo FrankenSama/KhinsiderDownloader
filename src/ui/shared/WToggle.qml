@@ -16,7 +16,7 @@ Item {
 
         anchors.fill: parent
         radius: height / 2
-        color: root.checked ? "#4caf50" : "#5d6d7e"
+        color: root.checked ? Theme.accent : Theme.surfaceHover
 
         Behavior on color {
             ColorAnimation {
@@ -33,7 +33,7 @@ Item {
         radius: width / 2
         y: 3
         x: root.checked ? parent.width - width - 3 : 3
-        color: "#ffffff"
+        color: Theme.text
 
         Behavior on x {
             NumberAnimation {

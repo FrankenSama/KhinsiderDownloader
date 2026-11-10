@@ -49,7 +49,7 @@ Item {
             text: "Default" // default label
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            color: "white"
+            color: Theme.text
         }
 
     }
@@ -61,7 +61,7 @@ Item {
         width: Math.max(16, badgeText.implicitWidth + 8)
         height: 16
         radius: height / 2
-        color: "#e74c3c"
+        color: Theme.danger
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.rightMargin: 4
@@ -72,7 +72,7 @@ Item {
 
             anchors.centerIn: parent
             text: root.badgeCount > 99 ? "99+" : root.badgeCount
-            color: "#ffffff"
+            color: Theme.text
             font.pointSize: 8
         }
     }

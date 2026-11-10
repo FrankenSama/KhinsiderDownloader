@@ -6,7 +6,7 @@ import "../shared"
 
 Rectangle {
     id: root
-    color: "#34495E"
+    color: Theme.surface
     height: 500
     width: 200
 
@@ -43,7 +43,7 @@ Rectangle {
                 Repeater {
                     model: app.searchController.albumInfoVM.filteredAlbumFields
                     Text {
-                        color: "#ffffff"
+                        color: Theme.text
                         text: modelData.label + ": " + modelData.value
                         elide: Text.ElideRight
                         font.pointSize: 13

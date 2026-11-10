@@ -10,7 +10,7 @@ Window {
     maximumWidth: width
     id: window
     visible: true
-    color: "#2c3e50"
+    color: Theme.surfaceAlt
     signal accepted
     title: "A new update has been released!"
     Column
@@ -22,7 +22,7 @@ Window {
             width: parent.width
             height:parent.height * 0.7
             font.pointSize: 20
-            color:"white"
+            color: Theme.text
             text:"Download the latest version of KhinsiderDownloader!\nClick OK to open the download page"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter

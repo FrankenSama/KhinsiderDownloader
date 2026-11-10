@@ -39,9 +39,11 @@ Rectangle {
     property alias label: buttonlabel.text
     id: buttonRect
     width: 40
-    radius: 107
+    radius: Theme.radiusMd
     height: 40
-    color: "#6c98c4"
+    color: Theme.surfaceAlt
+    border.width: 1
+    border.color: Theme.border
     scale: 1.0
 
     Behavior on color {
@@ -78,8 +80,8 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        onEntered: buttonRect.color = "#5a87b3"
-        onExited: buttonRect.color = "#6c98c4"
+        onEntered: buttonRect.color = Theme.surfaceHover
+        onExited: buttonRect.color = Theme.surfaceAlt
         onPressed: {
             shrinkAnim.running = true
         }
@@ -93,7 +95,7 @@ Rectangle {
 
     Text {
         id: buttonlabel
-        color: "white"
+        color: Theme.text
         text: ""
         elide: Text.ElideRight
         anchors.verticalCenter: parent.verticalCenter

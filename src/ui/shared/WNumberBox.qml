@@ -8,9 +8,11 @@ Rectangle {
     signal valueChanged();
     id: buttonRect
     width: parent.width * 0.5
-    radius: 107
+    radius: Theme.radiusMd
     height: 40
-    color: "#6c98c4"
+    color: Theme.surfaceAlt
+    border.width: 1
+    border.color: Theme.border
     scale: 1.0
     Behavior on color {
         ColorAnimation {
@@ -36,8 +38,8 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        onEntered: buttonRect.color = "#5a87b3"
-        onExited: buttonRect.color = "#6c98c4"
+        onEntered: buttonRect.color = Theme.surfaceHover
+        onExited: buttonRect.color = Theme.surfaceAlt
     }
     Row
     {
@@ -66,7 +68,7 @@ Rectangle {
             y:-2
             height: parent.height
             width: parent.width * 0.6
-            color:"white"
+            color: Theme.text
             id: buttonlabel
             text: currentNumber
             horizontalAlignment: Text.AlignHCenter

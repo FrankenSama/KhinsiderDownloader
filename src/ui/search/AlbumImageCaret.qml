@@ -82,7 +82,7 @@ ColumnLayout{
             layer.enabled: true
             layer.effect:ColorOverlay{
                 antialiasing: true
-                color: "#ce60f7ff"
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.81)
             }
         }
     }
@@ -90,7 +90,7 @@ ColumnLayout{
     Rectangle {
         id: caretBar
         visible: col.imageSources.length > 1
-        color: "#6C98C4"
+        color: Theme.surfaceAlt
         width: parent.width * 0.8
         radius: 10
         Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
@@ -126,7 +126,7 @@ ColumnLayout{
                 font.pointSize: 16
                 width: parent.width*0.6
                 height: parent.height
-                color: "#ffffff"
+                color: Theme.text
                 SequentialAnimation {
                     id: fadeTextOut
                     NumberAnimation { target: indextextlabel; property: "opacity"; to: 0; duration: 50 }

@@ -33,8 +33,8 @@ Item {
        states: [
               State {
                      name: "downloading"
-                     PropertyChanges { target: percentagebar; color:"#4CAF50" }
-                     PropertyChanges { target: mainrect; color:"#6C98C4" }
+                     PropertyChanges { target: statusRail; color: Theme.accent }
+                     PropertyChanges { target: percentagebar; color: Theme.accent; visible: true }
                      PropertyChanges { target: perclabel; visible: true}
                      PropertyChanges { target: downloadstatus; visible: true }
                      PropertyChanges { target: fileslabel; visible: true }
@@ -44,8 +44,8 @@ Item {
               },
               State {
                      name: "unparsed"
-                     PropertyChanges { target: percentagebar; color:"transparent" }
-                     PropertyChanges { target: mainrect; color:"#FFA000" }
+                     PropertyChanges { target: statusRail; color: Theme.warning }
+                     PropertyChanges { target: percentagebar; color: "transparent"; visible: false }
                      PropertyChanges { target: perclabel; visible: false}
                      PropertyChanges { target: downloadstatus; visible: false }
                      PropertyChanges { target: fileslabel; visible: false }
@@ -55,8 +55,8 @@ Item {
               },
               State {
                      name: "parsed"
-                     PropertyChanges { target: percentagebar; color:"transparent" }
-                     PropertyChanges { target: mainrect; color:"#6C98C4" }
+                     PropertyChanges { target: statusRail; color: Theme.textFaint }
+                     PropertyChanges { target: percentagebar; color: "transparent"; visible: false }
                      PropertyChanges { target: perclabel; visible: false}
                      PropertyChanges { target: downloadstatus; visible: true }
                      PropertyChanges { target: fileslabel; visible: true }
@@ -66,8 +66,8 @@ Item {
               },
               State {
                      name: "complete"
-                     PropertyChanges { target: percentagebar; color:"#2E7D32" }
-                     PropertyChanges { target: mainrect; color:"#4CAF50" }
+                     PropertyChanges { target: statusRail; color: Theme.success }
+                     PropertyChanges { target: percentagebar; color: "transparent"; visible: false }
                      PropertyChanges { target: perclabel; visible: false}
                      PropertyChanges { target: downloadstatus; visible: false }
                      PropertyChanges { target: fileslabel; visible: true }
@@ -77,8 +77,8 @@ Item {
               },
               State {
                      name: "errored"
-                     PropertyChanges { target: percentagebar; color:"transparent" }
-                     PropertyChanges { target: mainrect; color:"#D32F2F" }
+                     PropertyChanges { target: statusRail; color: Theme.danger }
+                     PropertyChanges { target: percentagebar; color: "transparent"; visible: false }
                      PropertyChanges { target: perclabel; visible: false}
                      PropertyChanges { target: downloadstatus; visible: false }
                      PropertyChanges { target: fileslabel; visible: true }
@@ -94,24 +94,50 @@ Item {
        Rectangle
        {
               id:mainrect
-              color: "#6C98C4" // background
+              color: Theme.surfaceAlt // background
+              border.width: 1
+              border.color: Theme.border
               width: parent.width
               height: parent.height
-              radius: 20
+              radius: Theme.radiusMd
 
-              // Progress fill, drawn behind the card content.
+              // Status rail: accent while downloading, green when complete,
+              // red on error, grey when idle.
+              Rectangle
+              {
+                     id: statusRail
+                     color: Theme.textFaint
+                     width: 3
+                     height: parent.height - 16
+                     radius: 2
+                     anchors.left: parent.left
+                     anchors.leftMargin: 6
+                     anchors.verticalCenter: parent.verticalCenter
+
+                     Behavior on color {
+                         ColorAnimation {
+                             duration: 150
+                         }
+                     }
+              }
+
+              // Progress fill along the bottom edge of the card.
               Rectangle
               {
                      property int percentage;
                      id: percentagebar
-                     color: "#4CAF50"
-                     width: (percentagebar.percentage / 100) * mainrect.width
-                     height: parent.height
-                     radius: 20
+                     color: Theme.accent
+                     anchors.left: parent.left
+                     anchors.bottom: parent.bottom
+                     anchors.leftMargin: 1
+                     anchors.bottomMargin: 1
+                     width: (percentagebar.percentage / 100) * (mainrect.width - 2)
+                     height: 3
+                     radius: 1.5
 
                      onPercentageChanged:
                      {
-                            percentagebar.width = (percentagebar.percentage / 100) * mainrect.width
+                            percentagebar.width = (percentagebar.percentage / 100) * (mainrect.width - 2)
                      }
 
                      Behavior on width {
@@ -144,7 +170,7 @@ Item {
                                    text: ""
                                    elide: Text.ElideRight
                                    horizontalAlignment: Text.AlignLeft
-                                   color:"white"
+                                   color: Theme.text
                                    verticalAlignment: Text.AlignVCenter
                                    font.bold: false
                                    font.pointSize: 13
@@ -155,7 +181,7 @@ Item {
                                    id: perclabel;
                                    Layout.preferredWidth: 44
                                    text: percentagebar.percentage + "%"
-                                   color:"white"
+                                   color: Theme.text
                                    elide: Text.ElideRight
                                    horizontalAlignment: Text.AlignRight
                                    verticalAlignment: Text.AlignVCenter
@@ -174,7 +200,7 @@ Item {
                                    Layout.fillWidth: true
                                    text: "Files: 0/0"
                                    elide: Text.ElideRight
-                                   color: "#e6ffffff"
+                                   color: Theme.textMuted
                                    horizontalAlignment: Text.AlignLeft
                                    verticalAlignment: Text.AlignVCenter
                                    font.pointSize: 10
@@ -185,7 +211,7 @@ Item {
                                    Layout.preferredWidth: 130
                                    text: ""
                                    elide: Text.ElideRight
-                                   color: "#e6ffffff"
+                                   color: Theme.textMuted
                                    horizontalAlignment: Text.AlignRight
                                    verticalAlignment: Text.AlignVCenter
                                    font.pointSize: 10
@@ -204,7 +230,7 @@ Item {
                                    ColorOverlay {
                                           anchors.fill: parent
                                           source: parent
-                                          color: "white"
+                                          color: Theme.text
                                    }
                                    MouseArea
                                    {

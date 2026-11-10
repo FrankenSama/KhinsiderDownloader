@@ -14,7 +14,7 @@ Window {
     minimumHeight: 600
     minimumWidth: 1000
     visible: true
-    color: "#2c3e50"
+    color: Theme.bg
     title: qsTr("Khinsider Downloader - QT") + (window.pendingSongs > 0
         ? "  -  " + window.downloadedSongs + "/" + window.totalSongCount
         : "")
@@ -171,18 +171,27 @@ Window {
                 Layout.preferredWidth: 100
                 Layout.fillHeight: true
                 height: parent.height
-                color: "#34495e"
+                color: Theme.surface
+
+                // Hairline divider between the sidebar and the content area.
+                Rectangle {
+                    width: 1
+                    height: parent.height
+                    anchors.right: parent.right
+                    color: Theme.borderSoft
+                }
 
                 // The sidebar highlight tracks whichever button is active.
                 property Item currentTabButton: leftdownloadbutton
 
                 Rectangle{
                     id: slider
-                    color: "#2c3e50"
-                    x: leftPanel.currentTabButton.x
-                    y: leftPanel.currentTabButton.y - (leftPanel.currentTabButton.height * 0.2)
-                    width: leftPanel.currentTabButton.width
-                    height: leftPanel.currentTabButton.height + (leftPanel.currentTabButton.height * 0.4)
+                    color: Theme.surfaceAlt
+                    radius: Theme.radiusMd
+                    x: leftPanel.currentTabButton.x + 6
+                    y: leftPanel.currentTabButton.y - (leftPanel.currentTabButton.height * 0.1)
+                    width: leftPanel.currentTabButton.width - 12
+                    height: leftPanel.currentTabButton.height * 1.2
 
                     Behavior on y {
                         NumberAnimation {
@@ -317,15 +326,15 @@ Window {
         id: quitOverlay
         anchors.fill: parent
         visible: false
-        color: "#aa000000"
+        color: Theme.scrim
         z: 900
 
         Rectangle {
             anchors.centerIn: parent
             width: 400
             height: 160
-            radius: 16
-            color: "#34495e"
+            radius: Theme.radiusLg
+            color: Theme.surfaceAlt
 
             Column {
                 anchors.centerIn: parent
@@ -335,7 +344,7 @@ Window {
                 Text {
                     width: parent.width
                     text: qsTr("Downloads are still running.\nQuit anyway?")
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap

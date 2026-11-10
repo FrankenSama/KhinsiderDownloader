@@ -7,7 +7,7 @@ import QtQml.XmlListModel
 import QtQuick.Layouts
 
 Rectangle {
-    color: "#2c3e50"
+    color: Theme.bg
     height: 700
     width: 400
     Connections {
@@ -31,25 +31,27 @@ Rectangle {
         width: parent.width * 0.9
         height: parent.height
         Text {
-            color: "white"
+            color: Theme.text
             height: implicitHeight
             width: implicitWidth
             text: qsTr("KhinsiderDownloader QT")
             font.pointSize: 25
         }
         Text {
-            color: "white"
+            color: Theme.text
             height: implicitHeight
             width: implicitWidth
             text: qsTr("Thanks to:")
             font.pointSize: 15
         }
         Rectangle {
-            color: "#6C98C4"
+            color: Theme.surfaceAlt
+            border.width: 1
+            border.color: Theme.border
             width: parent.width
             Layout.preferredHeight: parent.height * 0.6
             Layout.fillWidth: true
-            radius: 10
+            radius: Theme.radiusMd
             WScrollView {
                 id: scrollView
                 anchors.fill: parent
@@ -99,7 +101,7 @@ Rectangle {
                                 Text {
                                     Layout.leftMargin: 10
                                     text: username
-                                    color: "white"
+                                    color: Theme.text
                                     font.pointSize: 13
                                     elide: Text.ElideRight
                                     verticalAlignment: Text.AlignVCenter
@@ -114,7 +116,7 @@ Rectangle {
                                 Text {
                                     Layout.rightMargin: 10
                                     text: contributionType
-                                    color: "white"
+                                    color: Theme.text
                                     font.pointSize: 13
                                     elide: Text.ElideRight
                                     verticalAlignment: Text.AlignVCenter
@@ -135,7 +137,7 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 font.pointSize: 16
-                color: "white"
+                color: Theme.text
                 horizontalAlignment: Text.AlignLeft
                 verticalAlignment: Text.AlignVCenter
                 text: "Version: " + app.aboutController.appVersion
@@ -149,7 +151,8 @@ Rectangle {
                 verticalAlignment: Text.AlignVCenter
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 textFormat: Text.RichText
-                color: "white"
+                color: Theme.text
+                linkColor: Theme.accent
                 onLinkActivated: Qt.openUrlExternally(link)
                 font.pointSize: 16
             }

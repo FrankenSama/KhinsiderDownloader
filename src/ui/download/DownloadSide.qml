@@ -1,9 +1,10 @@
 import QtQuick 2.15
 import QtQuick.Controls.Basic
+import "../shared"
 
 Rectangle
 {
-       color: "#34495E"
+       color: Theme.surface
        id:root
        height: 800
        width: 600
@@ -20,7 +21,7 @@ Rectangle
               spacing: 5
               reuseItems: true
               model: app.downloaderController.downloaderVM
-              ScrollBar.vertical: ScrollBar {
+              ScrollBar.vertical: WScrollBar {
                      policy: ScrollBar.AlwaysOn
               }
 
@@ -63,7 +64,7 @@ Rectangle
               visible: downloadList.count === 0
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
-              color: "#b5ffffff"
+              color: Theme.textMuted
               font.pointSize: 12
               text: qsTr("No downloads yet.\nSearch for an album or paste links to get started.")
        }
@@ -76,7 +77,7 @@ Rectangle
               Rectangle {
                      width: parent.width
                      height: 1
-                     color: "#33ffffff"
+                     color: Theme.borderSoft
                      // The footer is empty until something is queued; don't
                      // leave a divider floating in an empty panel.
                      visible: speedText.opacity > 0
@@ -90,7 +91,7 @@ Rectangle
                             height: parent.height
                             width: parent.width/2
                             text: "";
-                            color: "#ffffff"
+                            color: Theme.text
                             opacity: 0
                             font.pointSize: 16
                             horizontalAlignment: Text.AlignHCenter
@@ -130,7 +131,7 @@ Rectangle
                             height: parent.height
                             width: parent.width/2
                             font.pointSize: 16
-                            color: "#ffffff"
+                            color: Theme.text
                             opacity: 0
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter

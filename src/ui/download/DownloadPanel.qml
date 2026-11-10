@@ -33,7 +33,7 @@ Item {
         ]
         width: parent.width
         height: parent.height
-        color: "#2C3E50"
+        color: Theme.bg
 
         Row {
             id: mainRow
@@ -69,8 +69,10 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: "#34495E"
-                        radius: 10
+                        color: Theme.surfaceAlt
+                        radius: Theme.radiusMd
+                        border.width: 1
+                        border.color: Theme.border
 
                         WScrollView {
                             id: bulkScroll
@@ -80,9 +82,9 @@ Item {
                             TextArea {
                                 id: textfield
                                 hoverEnabled: true
-                                color: "#ffffff"
+                                color: Theme.text
                                 font.pointSize: 13
-                                placeholderTextColor: "#b5ffffff"
+                                placeholderTextColor: Theme.textFaint
                                 placeholderText: qsTr("Paste album or playlist links here, one per line")
                                 width: bulkScroll.width
                                 wrapMode: TextArea.Wrap
@@ -107,6 +109,7 @@ Item {
                             Layout.preferredWidth: 140
                             Layout.fillHeight: true
                             fontSize: 12
+                            secondary: true
                             label: root.urlsExpanded ? qsTr("Hide link box") : qsTr("Paste links")
                             onClicked: root.urlsExpanded = !root.urlsExpanded
                         }
@@ -135,6 +138,7 @@ Item {
                             Layout.preferredWidth: 130
                             Layout.fillHeight: true
                             fontSize: 13
+                            secondary: true
                             label: qsTr("Cancel all")
                             onClicked: {
                                 if (app.downloaderController.downloaderVM.totalSongs() === 0) {
@@ -158,6 +162,7 @@ Item {
                         height: parent.height
                         anchors.horizontalCenter: parent.horizontalCenter
                         fontSize: 12
+                        secondary: true
                         label: qsTr("Open download folder")
                         onClicked: app.downloaderController.openDownloadFolder()
                     }
@@ -187,15 +192,17 @@ Item {
         id: cancelOverlay
         anchors.fill: parent
         visible: false
-        color: "#aa000000"
+        color: Theme.scrim
         z: 100
 
         Rectangle {
             anchors.centerIn: parent
             width: 400
             height: 160
-            radius: 16
-            color: "#34495e"
+            radius: Theme.radiusLg
+            color: Theme.surfaceAlt
+            border.width: 1
+            border.color: Theme.border
 
             Column {
                 anchors.centerIn: parent
@@ -205,7 +212,7 @@ Item {
                 Text {
                     width: parent.width
                     text: qsTr("Cancel all queued and running downloads?")
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
@@ -219,6 +226,7 @@ Item {
                         width: 160
                         height: 36
                         fontSize: 12
+                        secondary: true
                         label: qsTr("Keep downloading")
                         onClicked: cancelOverlay.visible = false
                     }
@@ -227,6 +235,7 @@ Item {
                         width: 120
                         height: 36
                         fontSize: 12
+                        danger: true
                         label: qsTr("Cancel all")
                         onClicked: {
                             app.downloaderController.downloaderVM.cancelAllDownloads();

@@ -6,7 +6,7 @@ import QtQuick.Controls.Basic
 
 Rectangle {
     id: root
-    color: "#2c3e50"
+    color: Theme.bg
     height: 700
     width: 400
 
@@ -46,7 +46,7 @@ Rectangle {
 
             Text {
                 Layout.topMargin: 4
-                color: "#b5ffffff"
+                color: Theme.textMuted
                 font.pointSize: 11
                 font.bold: true
                 text: qsTr("DOWNLOADS")
@@ -60,14 +60,16 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 40
-                    radius: 10
-                    color: "#6c98c4"
+                    radius: Theme.radiusMd
+                    color: Theme.surfaceAlt
+                    border.width: 1
+                    border.color: Theme.border
 
                     Text {
                         anchors.fill: parent
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
-                        color: "#ffffff"
+                        color: Theme.text
                         font.pointSize: 12
                         text: app.settings.downloadPath
                         elide: Text.ElideMiddle
@@ -79,6 +81,7 @@ Rectangle {
                     Layout.preferredWidth: 110
                     Layout.preferredHeight: 40
                     fontSize: 12
+                    secondary: true
                     label: qsTr("Open folder")
                     onClicked: app.downloaderController.openDownloadFolder()
                 }
@@ -99,7 +102,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Download threads")
                     verticalAlignment: Text.AlignVCenter
@@ -125,14 +128,14 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Concurrent downloads per thread")
                     verticalAlignment: Text.AlignVCenter
                 }
 
                 Text {
-                    color: "#99ffffff"
+                    color: Theme.textMuted
                     font.pointSize: 11
                     text: qsTr("0 = no limit")
                     verticalAlignment: Text.AlignVCenter
@@ -158,7 +161,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Preferred audio quality")
                     verticalAlignment: Text.AlignVCenter
@@ -183,11 +186,11 @@ Rectangle {
                 Layout.preferredHeight: 1
                 Layout.topMargin: 6
                 Layout.bottomMargin: 6
-                color: "#33ffffff"
+                color: Theme.borderSoft
             }
 
             Text {
-                color: "#b5ffffff"
+                color: Theme.textMuted
                 font.pointSize: 11
                 font.bold: true
                 text: qsTr("BEHAVIOUR")
@@ -200,7 +203,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Download art covers")
                     verticalAlignment: Text.AlignVCenter
@@ -221,7 +224,7 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Skip files that already exist")
                     verticalAlignment: Text.AlignVCenter
@@ -242,14 +245,14 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    color: "#ffffff"
+                    color: Theme.text
                     font.pointSize: 12
                     text: qsTr("Enable logging")
                     verticalAlignment: Text.AlignVCenter
                 }
 
                 Text {
-                    color: "#99ffffff"
+                    color: Theme.textMuted
                     font.pointSize: 11
                     text: qsTr("Open log folder")
                     verticalAlignment: Text.AlignVCenter

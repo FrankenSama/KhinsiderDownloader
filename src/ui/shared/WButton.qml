@@ -1,5 +1,7 @@
 import QtQuick 2.15
 
+// Rounded action button. The default variant is the accent (primary) action;
+// `secondary` renders a neutral outlined button, `danger` a destructive one.
 Rectangle {
     id: buttonRect
 
@@ -7,10 +9,23 @@ Rectangle {
     property alias label: buttonlabel.text
 
     property alias fontSize : buttonlabel.font.pointSize
-    color: "#6c98c4"
+
+    property bool secondary: false
+    property bool danger: false
+
+    readonly property color baseColor: danger ? Theme.danger
+        : secondary ? Theme.surfaceAlt
+        : Theme.accent
+    readonly property color hoverColor: danger ? Theme.dangerHover
+        : secondary ? Theme.surfaceHover
+        : Theme.accentHover
+    readonly property color labelColor: (secondary || danger) ? Theme.text : Theme.onAccent
+
+    color: baseColor
+    border.width: secondary ? 1 : 0
+    border.color: Theme.border
     height: 40
-    //width: parent.width * 0.5
-    radius: 107
+    radius: Theme.radiusMd
     scale: 1.0
 
     Behavior on color {
@@ -43,8 +58,8 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
 
-        onEntered: buttonRect.color = "#5a87b3"
-        onExited: buttonRect.color = "#6c98c4"
+        onEntered: buttonRect.color = buttonRect.hoverColor
+        onExited: buttonRect.color = buttonRect.baseColor
         onPressed: {
             shrinkAnim.running = true;
         }
@@ -63,7 +78,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.verticalCenter: parent.verticalCenter
-        color: "white"
+        color: buttonRect.labelColor
         elide: Text.ElideRight
         font.pointSize: 16
         horizontalAlignment: Text.AlignHCenter

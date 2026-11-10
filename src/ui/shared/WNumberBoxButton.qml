@@ -28,7 +28,7 @@ Text
     property bool isPlus: false
     id: control
 
-    color:"white"
+    color: Theme.text
     text: isPlus ? "+" : "-"
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter

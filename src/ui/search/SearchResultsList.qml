@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls.Basic
+import "../shared"
 
 Item {
     id: root
@@ -24,7 +25,7 @@ Item {
         spacing: 5
         reuseItems: true
         model: app.searchController.searchResultVM
-        ScrollBar.vertical: ScrollBar {
+        ScrollBar.vertical: WScrollBar {
             policy: ScrollBar.AlwaysOn
         }
 
@@ -37,14 +38,35 @@ Item {
 
                 property bool isSelected: index === root.selectedIndex
 
-                color: isSelected || mouseArea.containsMouse ? "#759fc7" : "#6c98c4"
+                color: isSelected ? Theme.accentSoft
+                    : mouseArea.containsMouse ? Theme.surfaceHover
+                    : Theme.surfaceAlt
+                border.width: 1
+                border.color: isSelected ? Theme.accent : Theme.borderSoft
                 height: parent.height
-                radius: 10
+                radius: Theme.radiusMd
                 width: parent.width * 0.9
                 x: isSelected ? 0 : (parent.width - width) / 2
                 scale: root.isSearching ? 0 : isSelected ? 0.95 : mouseArea.pressed ? 0.90 : 1.0
                 opacity: root.isSearching ? 0 : 1
 
+                // Accent rail makes the current selection obvious at a glance.
+                Rectangle {
+                    width: 3
+                    height: parent.height * 0.5
+                    radius: 2
+                    color: Theme.accent
+                    anchors.left: parent.left
+                    anchors.leftMargin: 5
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: rectangle.isSelected
+                }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
                 Behavior on scale {
                     NumberAnimation {
                         duration: 150
@@ -84,7 +106,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        color: "white"
+                        color: Theme.text
                         elide: Text.ElideRight
                         font.bold: true
                         font.pointSize: 13
@@ -93,7 +115,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        color: "#d9ffffff"
+                        color: Theme.textMuted
                         elide: Text.ElideRight
                         font.pointSize: 10
                         text: model.details
@@ -135,7 +157,7 @@ Item {
         width: parent.width * 0.8
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
-        color: "#b5ffffff"
+        color: Theme.textMuted
         font.pointSize: 12
         visible: resultsList.count === 0 || root.isSearching
         text: {

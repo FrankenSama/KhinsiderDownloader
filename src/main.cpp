@@ -1,4 +1,5 @@
 #include "App.h"
+#include "Theme.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -36,6 +37,8 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<DownloaderModel>("App.Models", 1, 0, "DownloaderModel");
 
     int result = 0;
+    // Declared outside the block so it outlives the engine that references it.
+    Theme theme;
     {
         // App must be destroyed before curl_global_cleanup(), because the
         // download workers and their libcurl handles are owned by it.
@@ -51,6 +54,7 @@ int main(int argc, char *argv[]) {
         auto *precache = new ImagePrecache(globalManager, &engine);
 
         engine.rootContext()->setContextProperty("app", &kApp);
+        engine.rootContext()->setContextProperty("Theme", &theme);
         QObject::connect(
             &engine,
             &QQmlApplicationEngine::objectCreationFailed,

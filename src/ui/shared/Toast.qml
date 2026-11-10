@@ -17,9 +17,9 @@ Rectangle {
 
     width: Math.min(toastText.implicitWidth + 36, 460)
     height: 42
-    radius: 21
-    color: "#e634495e"
-    border.color: "#40ffffff"
+    radius: Theme.radiusMd
+    color: Qt.rgba(Theme.surfaceAlt.r, Theme.surfaceAlt.g, Theme.surfaceAlt.b, 0.96)
+    border.color: Theme.border
     border.width: 1
     opacity: 0
     visible: opacity > 0
@@ -36,7 +36,7 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(implicitWidth, 424)
         text: root.message
-        color: "#ffffff"
+        color: Theme.text
         font.pointSize: 11
         elide: Text.ElideRight
         horizontalAlignment: Text.AlignHCenter

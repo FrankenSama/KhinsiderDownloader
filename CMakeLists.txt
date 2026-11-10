@@ -90,6 +90,7 @@ qt_add_executable(appKhinsiderQT
 		src/pages/about/aboutcontroller.cpp
         src/LogController.cpp
         src/LogController.h
+        src/Theme.h
 )
 
 target_include_directories(appKhinsiderQT PRIVATE
@@ -113,6 +114,7 @@ qt_add_qml_module(appKhinsiderQT
         src/ui/shared/WEnumButton.qml
         src/ui/shared/WNumberBox.qml
         src/ui/shared/WNumberBoxButton.qml
+        src/ui/shared/WScrollBar.qml
         src/ui/shared/WScrollView.qml
         src/ui/shared/WToggle.qml
 

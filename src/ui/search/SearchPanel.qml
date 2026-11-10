@@ -7,7 +7,7 @@ Rectangle {
     width: 800
     id: mainWindow
     height: 500
-    color: "#2c3e50"
+    color: Theme.bg
 
     // Bubbled up to Main.qml, which owns the toast overlay.
     signal toastRequested(string message)
@@ -97,8 +97,10 @@ Rectangle {
                         id: searchField
                         width: parent.width - searchButton.width - row1.spacing
                         height: parent.height
-                        radius: 15
-                        color: "#6C98C4"
+                        radius: Theme.radiusMd
+                        color: Theme.surfaceAlt
+                        border.width: 1
+                        border.color: Theme.border
 
                         RowLayout {
                             anchors.fill: parent
@@ -110,10 +112,10 @@ Rectangle {
                                 id: textfield
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                color: "#ffffff"
+                                color: Theme.text
                                 font.pointSize: 13
                                 placeholderText: qsTr("Search for a game or album...")
-                                placeholderTextColor: "#b5ffffff"
+                                placeholderTextColor: Theme.textFaint
                                 verticalAlignment: Text.AlignVCenter
                                 selectByMouse: true
                                 background: null
@@ -129,7 +131,7 @@ Rectangle {
                                 Text {
                                     anchors.centerIn: parent
                                     text: "\u00d7"
-                                    color: "#e6ffffff"
+                                    color: Theme.textMuted
                                     font.pointSize: 18
                                 }
 
@@ -169,7 +171,7 @@ Rectangle {
                     anchors.fill: parent
 
                     Text {
-                        color: "#b5ffffff"
+                        color: Theme.textMuted
                         font.pointSize: 11
                         verticalAlignment: Text.AlignVCenter
                         text: qsTr("Results") + " (" + app.searchController.searchResultVM.count + ")"
@@ -213,7 +215,7 @@ Rectangle {
                 id: rightPanel
                 width: parent.width
                 height: parent.height
-                color: "#34495e"
+                color: Theme.surface
 
                 AlbumInfoSide {
                     width: parent.width
