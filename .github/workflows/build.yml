@@ -27,8 +27,8 @@ jobs:
       - name: Check Build Flags First
         id: check_flags
         run: |
-          MESSAGE=$(git log -1 --pretty=%B)
-          echo "Last commit message: $MESSAGE"
+          MESSAGE=$(git log -1 --pretty=%s)
+          echo "Last commit subject: $MESSAGE"
           
           if echo "$MESSAGE" | grep -qE "\[RELEASE\]|\[PRE-RELEASE\]"; then
             echo "is_release=true" >> $GITHUB_OUTPUT
@@ -69,7 +69,7 @@ jobs:
           SUFFIX=$(echo "$VERSION" | grep -oP '(?<=-).*' || echo "")
           IFS='.' read -r -a PARTS <<< "$BASE"
           
-          LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%s)
           
           if echo "$LAST_COMMIT_MESSAGE" | grep -q "\[MAJOR\]"; then
             PARTS[0]=$((PARTS[0]+1))
@@ -297,7 +297,7 @@ jobs:
             exit 0
           fi
           
-          COMMIT_MESSAGE=$(git log -2 --pretty=%B)
+          COMMIT_MESSAGE=$(git log -2 --pretty=%s)
           if echo "$COMMIT_MESSAGE" | grep -q "\[RELEASE\]"; then
             echo "create_release=true" >> $GITHUB_OUTPUT
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
