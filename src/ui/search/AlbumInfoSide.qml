@@ -5,9 +5,13 @@ import QtQuick.Controls.Basic
 import "../shared"
 
 Rectangle {
+    id: root
     color: "#34495E"
     height: 500
     width: 200
+
+    // Bubbled up to Main.qml, which owns the toast overlay.
+    signal toastRequested(string message)
 
     ColumnLayout {
         anchors.fill:parent
@@ -29,7 +33,6 @@ Rectangle {
             Layout.fillHeight: true
             clip: true
             id: scrollView
-            wheelEnabled: false
 
             Column {
                 width: scrollView.width * 0.9
@@ -85,7 +88,10 @@ Rectangle {
                         }
                         onClicked:
                         {
+                            var album = app.searchController.albumInfoVM.currentAlbum;
+                            var albumName = album ? album.name : qsTr("Album");
                             app.searchController.albumInfoVM.requestDownload(modelData);
+                            root.toastRequested(qsTr("Queued ") + albumName + " (" + modelData + ")");
                         }
                     }
                 }

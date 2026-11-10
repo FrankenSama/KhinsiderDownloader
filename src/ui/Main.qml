@@ -24,6 +24,18 @@ Window {
     color: "#2c3e50"
     title: qsTr("Khinsider Downloader - QT")
 
+    // Set once the user has confirmed quitting while work is still pending.
+    property bool allowQuit: false
+
+    onClosing: function(close) {
+        var vm = app.downloaderController.downloaderVM;
+        var hasPendingWork = vm.totalSongs() > 0 && vm.totalDownloadedSongs() < vm.totalSongs();
+        if (!window.allowQuit && hasPendingWork) {
+            close.accepted = false;
+            quitOverlay.visible = true;
+        }
+    }
+
     Column {
         id: maincol
         state: "downloadtab"
@@ -198,6 +210,7 @@ Window {
                     id: searchPanel;
                     width: parent.width
                     height: parent.height
+                    onToastRequested: function(message) { toast.show(message); }
                 }
                 SettingsPanel
                 {
@@ -210,12 +223,75 @@ Window {
                     id: downloadPanel;
                     width: parent.width
                     height: parent.height
+                    onToastRequested: function(message) { toast.show(message); }
                 }
                 AboutPanel
                 {
                     id: aboutPanel;
                     width: parent.width
                     height: parent.height
+                }
+            }
+        }
+    }
+
+    Toast {
+        id: toast
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 28
+        z: 1000
+    }
+
+    // Confirmation shown when the window is closed with downloads still queued.
+    Rectangle {
+        id: quitOverlay
+        anchors.fill: parent
+        visible: false
+        color: "#aa000000"
+        z: 900
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 400
+            height: 160
+            radius: 16
+            color: "#34495e"
+
+            Column {
+                anchors.centerIn: parent
+                width: parent.width * 0.85
+                spacing: 18
+
+                Text {
+                    width: parent.width
+                    text: qsTr("Downloads are still running.\nQuit anyway?")
+                    color: "#ffffff"
+                    font.pointSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
+
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 12
+
+                    WButton {
+                        width: 150
+                        height: 36
+                        label: qsTr("Keep downloading")
+                        onClicked: quitOverlay.visible = false
+                    }
+
+                    WButton {
+                        width: 90
+                        height: 36
+                        label: qsTr("Quit")
+                        onClicked: {
+                            window.allowQuit = true;
+                            window.close();
+                        }
+                    }
                 }
             }
         }

@@ -9,6 +9,9 @@ Rectangle {
     height : 500
     color: "#2c3e50"
 
+    // Bubbled up to Main.qml, which owns the toast overlay.
+    signal toastRequested(string message)
+
     Connections
     {
         target: app.searchController.searchResultVM
@@ -105,6 +108,10 @@ Rectangle {
                                     }
                                     onAccepted:
                                     {
+                                        if (textfield.text.trim().length === 0) {
+                                            mainWindow.toastRequested("Type something to search for");
+                                            return;
+                                        }
                                         app.searchController.doSearch(textfield.text);
                                     }
 
@@ -184,6 +191,10 @@ Rectangle {
 
                                     onClicked: {
 
+                                        if (textfield.text.trim().length === 0) {
+                                            mainWindow.toastRequested("Type something to search for");
+                                            return;
+                                        }
                                         app.searchController.doSearch(textfield.text);
                                     }
                                     onEntered: {
@@ -209,8 +220,12 @@ Rectangle {
                         width: parent.width * 0.2
                         onClicked:
                         {
-                            app.searchController.addAllAlbumsToDownloads();
-                            searchList.hideAllResults();
+                            var added = app.searchController.addAllAlbumsToDownloads();
+                            if (added > 0) {
+                                mainWindow.toastRequested("Queued " + added + (added === 1 ? " album" : " albums") + " for download");
+                            } else {
+                                mainWindow.toastRequested("Nothing to add - run a search first");
+                            }
                         }
                     }
                 }

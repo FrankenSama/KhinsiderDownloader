@@ -28,6 +28,11 @@ public:
 public:
     DownloaderModel *downloaderVM() { return m_Model; }
 
+    // Parses a newline separated list of album/playlist links and queues them.
+    // Returns the number of albums that were actually added, so the UI can
+    // report success instead of clearing the user's input blindly.
+    Q_INVOKABLE int importUrls(const QString &list);
+
 public slots:
     void startDownload();
 
@@ -44,6 +49,8 @@ public slots:
     void requestAddAlbums(QVector<QSharedPointer<Album> > albums, DownloadQuality quality);
 
 private:
+    int addToDownloadListImpl(const QString &list);
+
     void onAlbumDataFetched(QSharedPointer<Album> album, DownloadQuality quality);
 
     void processSongDownloads(QSharedPointer<Album> album, DownloadQuality quality);

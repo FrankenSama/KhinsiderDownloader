@@ -26,7 +26,7 @@ Rectangle
 
               delegate: Item {
                      width: downloadList.width
-                     height: 45
+                     height: 56
 
                      AlbumItem
                      {

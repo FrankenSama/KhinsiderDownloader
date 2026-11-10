@@ -595,7 +595,8 @@ void DownloaderController::updateModelData() {
     m_Model->setAlbums(albumsForModel);
 }
 
-void DownloaderController::addToDownloadList(const QString &List) {
+int DownloaderController::addToDownloadListImpl(const QString &List) {
+    int added = 0;
     QStringList url_list = List.split('\n');
     for (const QString &rawUrl: std::as_const(url_list)) {
         QString url = rawUrl.trimmed();
@@ -637,6 +638,7 @@ void DownloaderController::addToDownloadList(const QString &List) {
             newAlbum->setAlbumLink(url);
             onDownloadListAdd(newAlbum, normalizeQuality(m_settings ? m_settings->preferredAudioQuality()
                                                                   : DownloadQuality::MP3));
+            ++added;
         };
 
         QRegularExpressionMatch match = albumre.match(url);
@@ -650,6 +652,16 @@ void DownloaderController::addToDownloadList(const QString &List) {
             processMatch(match, url, true);
         }
     }
+
+    return added;
+}
+
+void DownloaderController::addToDownloadList(const QString &List) {
+    addToDownloadListImpl(List);
+}
+
+int DownloaderController::importUrls(const QString &list) {
+    return addToDownloadListImpl(list);
 }
 
 void DownloaderController::onThreadsNumberChanged() {

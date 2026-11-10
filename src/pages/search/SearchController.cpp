@@ -26,6 +26,8 @@ SearchController::SearchController(QObject *parent) {
             this, &SearchController::doSearch);
     connect(this, &SearchController::searchStarted,
             m_searchResultVM, &SearchResultModel::searchStarted);
+    connect(this, &SearchController::searchFailed,
+            m_searchResultVM, &SearchResultModel::onSearchFailed);
     connect(this, &SearchController::onFullFetched,
             m_albumInfoVM, &SearchAlbumInfoViewModel::onFullFetch);
     connect(m_albumInfoVM, &SearchAlbumInfoViewModel::downloadRequested, this, &SearchController::onDownloadAddRequest);
@@ -58,8 +60,9 @@ void SearchController::doSearch(const QString &query) {
 
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "Request failed:" << reply->errorString();
+            const QString message = reply->errorString();
             reply->deleteLater();
-            emit searchResultsReceived(res);
+            emit searchFailed(message);
             return;
         }
 

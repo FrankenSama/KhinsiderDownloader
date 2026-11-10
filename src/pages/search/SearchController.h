@@ -38,11 +38,19 @@ signals:
 
     void searchStarted();
 
+    // Emitted when the search request itself fails (network error), so the UI
+    // can distinguish "no matches" from "could not reach the site".
+    void searchFailed(const QString &message);
+
 public slots:
     void doSearch(const QString &text);
 
-    void addAllAlbumsToDownloads() {
+    // Queues every current search result and returns how many were queued, so
+    // the caller can confirm the action instead of silently clearing the list.
+    Q_INVOKABLE int addAllAlbumsToDownloads() {
+        const int count = m_searchResultVM->albums().count();
         emit onDownloadAllAddRequest(m_searchResultVM->albums(), DownloadQuality::UNKNOWN);
+        return count;
     }
 
 private:

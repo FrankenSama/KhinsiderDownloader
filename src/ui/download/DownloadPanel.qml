@@ -7,6 +7,10 @@ Item {
     //todo: show speed per album, MB/MB stop button (delete)
     width: 800
     height: 600
+
+    // Bubbled up to Main.qml, which owns the toast overlay.
+    signal toastRequested(string message)
+
     Rectangle {
         id:mainWindow
         state: "normal"
@@ -114,12 +118,20 @@ Item {
                         Layout.preferredHeight: 45
 
                         Layout.preferredWidth: parent.width * 0.8
-                        label: "Import"
+                        label: "Add URLs"
                         onClicked:
                         {
-                            app.downloaderController.downloaderVM.addToDownloadList(textfield.text);
-                            textfield.text = "";
-                            //mainWindow.state = (mainWindow.state === "normal") ? "expanded" : "normal"
+                            if (textfield.text.trim().length === 0) {
+                                root.toastRequested("Paste one or more album links first");
+                                return;
+                            }
+                            var added = app.downloaderController.importUrls(textfield.text);
+                            if (added > 0) {
+                                textfield.text = "";
+                                root.toastRequested("Queued " + added + (added === 1 ? " album" : " albums"));
+                            } else {
+                                root.toastRequested("No album links found - nothing was queued");
+                            }
                         }
                     }
                     WButton {

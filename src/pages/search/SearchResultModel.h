@@ -67,6 +67,14 @@ public slots:
         emit searchCompleted();
     }
 
+    void onSearchFailed(const QString &message) {
+        m_selectedIndex = -1;
+        setAlbums({});
+        emit selectedIndexChanged();
+        emit searchCompleted();
+        emit searchFailed(message);
+    }
+
     void setSelectedIndex(int index) {
         QSharedPointer<Album> album = getAlbumAt(index);
         if (album) {
@@ -88,6 +96,8 @@ signals:
     void selectedIndexChanged();
 
     void albumSelected(QSharedPointer<Album> album);
+
+    void searchFailed(const QString &message);
 
 private:
     QVector<QSharedPointer<Album> > m_albums;
