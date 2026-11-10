@@ -27,6 +27,10 @@ Rectangle {
     }
 
     function handleEscape() {
+        if (searchList.hasFocusInList()) {
+            textfield.forceActiveFocus();
+            return;
+        }
         if (textfield.text.length > 0) {
             textfield.text = "";
             return;
@@ -120,6 +124,14 @@ Rectangle {
                                 selectByMouse: true
                                 background: null
                                 onAccepted: mainWindow.performSearch()
+
+                                // Down from the search box jumps into the
+                                // results, selecting the first one.
+                                Keys.onDownPressed: function(event) {
+                                    if (searchList.takeFocus()) {
+                                        event.accepted = true;
+                                    }
+                                }
                             }
 
                             // Clear the current query without leaving the field.
@@ -202,6 +214,12 @@ Rectangle {
                 id: searchList
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+
+                onToastRequested: function(message) {
+                    mainWindow.toastRequested(message);
+                }
+
+                onFocusSearchRequested: mainWindow.focusSearch()
             }
         }
 

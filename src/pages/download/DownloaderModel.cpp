@@ -59,13 +59,17 @@ QHash<int, QByteArray> DownloaderModel::roleNames() const {
 }
 
 double DownloaderModel::totalProgress() const {
-    qint64 totalBytes = 0, downloadedBytes = 0;
-    for (const auto &album: m_albums) {
-        if (!album) continue;
-        // totalBytes += album->totalSize();
-        downloadedBytes += album->downloadedSize();
+    const qint64 total = totalSize();
+    if (total <= 0) {
+        // Sizes are only known once the album pages have been parsed. Until
+        // then, fall back to how many files are done.
+        const int songs = totalSongs();
+        if (songs <= 0) {
+            return 0;
+        }
+        return qBound(0.0, totalDownloadedSongs() * 100.0 / songs, 100.0);
     }
-    return totalBytes ? (downloadedBytes * 100.0 / totalBytes) : 0;
+    return qBound(0.0, totalDownloadedSize() * 100.0 / total, 100.0);
 }
 
 qint64 DownloaderModel::totalDownloadedSize() const {
@@ -86,7 +90,9 @@ qint64 DownloaderModel::totalSpeed() const {
 
 qint64 DownloaderModel::totalSize() const {
     qint64 total = 0;
-    //for (auto* album : m_albums) total += album->totalSize();
+    for (const auto &album: m_albums) {
+        if (album) total += album->totalSize();
+    }
     return total;
 }
 

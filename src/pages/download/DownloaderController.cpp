@@ -9,13 +9,6 @@
 
 #include "KhinsiderRequest.h"
 
-static const QMap<QString, int> qualityRanking = {
-    {"FLAC", 4},
-    {"ALAC", 3},
-    {"AAC", 2},
-    {"MP3", 1}
-};
-
 DownloaderController::DownloaderController(QObject *parent, Settings *settings)
     : QObject(parent), m_settings(settings) {
     // The manager must outlive every reply owned by this controller. Making it
@@ -67,7 +60,11 @@ void DownloaderController::addAlbumToDownload(QSharedPointer<Album> album, Downl
     if (!album) {
         return;
     }
-    m_addedAlbums[album] = normalizeQuality(quality);
+    const DownloadQuality resolved = normalizeQuality(quality);
+    m_addedAlbums[album] = resolved;
+    // Remember the quality on the album itself: the queue footer uses it to
+    // work out how many bytes the album will actually pull down.
+    album->setDownloadQuality(resolved);
 }
 
 void DownloaderController::fetchPage(
@@ -140,24 +137,8 @@ void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
                       return;
                   }
 
-                  htmlDocPtr doc = htmlReadMemory(body.constData(), body.size(), nullptr,
-                                                  nullptr,
-                                                  HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
-                  if (!doc) {
-                      qWarning() << "HTML read failed";
-                      album->setHasErrors(true);
-                      return;
-                  }
-
-                  bool parsed = false;
-                  if (album->isPlaylist()) {
-                      parsed = KhinsiderParser::ParsePlaylist(doc, album);
-                  } else {
-                      parsed = KhinsiderParser::ParseAlbumFullData(doc, album);
-                  }
-                  xmlFreeDoc(doc);
-
-                  if (!parsed) {
+                  if (!KhinsiderParser::ParseAlbumPageHtml(body, album)) {
+                      qWarning() << "Failed to parse album page" << album->albumLink();
                       album->setHasErrors(true);
                       return;
                   }
@@ -453,7 +434,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (quality == DownloadQuality::BEST) {
         int highestRank = 0;
         for (auto it = links.constBegin(); it != links.constEnd(); ++it) {
-            int currentRank = qualityRanking.value(it.key(), 0);
+            int currentRank = Album::formatRanking().value(it.key(), 0);
             if (currentRank > highestRank) {
                 highestRank = currentRank;
                 downloadLink = it.value();
@@ -523,6 +504,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (QFileInfo(filePath).exists() && QFileInfo(filePath).size() > 1024 &&
         m_settings && m_settings->skipDownloaded()) {
         song->setDownloaded(true);
+        song->setDownloadedSize(QFileInfo(filePath).size());
         emit songDownloadFinished(song);
         maybeFinishAlbum(album);
         return;
@@ -555,10 +537,20 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
 
                 qDebug() << "Successfully downloaded:" << song->name() << "to" << filePath;
                 song->setDownloaded(true);
+                // The parser only knows the advertised size; use the real file
+                // size so the queue total matches what is on disk.
+                song->setDownloadedSize(QFileInfo(filePath).size());
                 emit songDownloadFinished(song);
                 maybeFinishAlbum(album);
                 songDownloadReply->deleteLater();
             }, Qt::QueuedConnection);
+
+    connect(songDownloadReply, &WDownloadReplyBase::downloadProgress,
+            this, [song](qint64 bytesReceived, qint64 bytesTotal) {
+                Q_UNUSED(bytesTotal);
+                song->setDownloadedSize(bytesReceived);
+            },
+            Qt::QueuedConnection);
 
     connect(songDownloadReply, &WDownloadReplyBase::downloadSpeed,
             this, [song](qint64 speed) {

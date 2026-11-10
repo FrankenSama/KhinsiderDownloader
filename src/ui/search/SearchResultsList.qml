@@ -4,9 +4,63 @@ import "../shared"
 
 Item {
     id: root
+
+    // Bubbled up to Main.qml, which owns the toast overlay.
+    signal toastRequested(string message)
+
+    // Emitted when Up is pressed on the first result, so the search box can
+    // take the keyboard back.
+    signal focusSearchRequested()
+
     function hideAllResults()
     {
         root.isSearching = true;
+    }
+
+    // Moves keyboard focus into the results so the arrow keys take over.
+    function takeFocus() {
+        if (resultsList.count === 0) {
+            return false;
+        }
+        resultsList.forceActiveFocus();
+        if (root.selectedIndex < 0) {
+            root.stepSelection(1);
+        }
+        return true;
+    }
+
+    function stepSelection(delta) {
+        var count = resultsList.count;
+        if (count === 0) {
+            return;
+        }
+        // Pressing Up on the first row hands the keyboard back to the search
+        // box, the way a browser address bar behaves.
+        if (delta < 0 && root.selectedIndex <= 0) {
+            root.focusSearchRequested();
+            return;
+        }
+        var next = root.selectedIndex < 0
+            ? (delta > 0 ? 0 : count - 1)
+            : Math.max(0, Math.min(count - 1, root.selectedIndex + delta));
+        app.searchController.searchResultVM.setSelectedIndex(next);
+        resultsList.positionViewAtIndex(next, ListView.Contain);
+    }
+
+    // Enter queues the highlighted album, matching the primary action on the
+    // info panel.
+    function activateSelection() {
+        if (root.selectedIndex < 0) {
+            return;
+        }
+        var name = app.searchController.addAlbumToDownloads(root.selectedIndex);
+        if (name.length > 0) {
+            root.toastRequested("Queued " + name + " for download");
+        }
+    }
+
+    function hasFocusInList() {
+        return resultsList.activeFocus;
     }
 
     readonly property int selectedIndex: app.searchController.searchResultVM.selectedIndex
@@ -27,6 +81,25 @@ Item {
         model: app.searchController.searchResultVM
         ScrollBar.vertical: WScrollBar {
             policy: ScrollBar.AlwaysOn
+        }
+
+        // Arrow keys move the highlight, Enter queues the album. Escape is left
+        // unhandled so the window shortcut can return focus to the search box.
+        Keys.onUpPressed: function(event) {
+            root.stepSelection(-1);
+            event.accepted = true;
+        }
+        Keys.onDownPressed: function(event) {
+            root.stepSelection(1);
+            event.accepted = true;
+        }
+        Keys.onReturnPressed: function(event) {
+            root.activateSelection();
+            event.accepted = true;
+        }
+        Keys.onEnterPressed: function(event) {
+            root.activateSelection();
+            event.accepted = true;
         }
 
         delegate: Item {
@@ -92,6 +165,7 @@ Item {
                     hoverEnabled: true
 
                     onClicked: {
+                        resultsList.forceActiveFocus();
                         app.searchController.searchResultVM.setSelectedIndex(index);
                     }
                 }

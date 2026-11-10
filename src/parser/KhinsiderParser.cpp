@@ -48,6 +48,24 @@ bool KhinsiderParser::ParseAlbumPage(htmlDocPtr Document, QVector<QSharedPointer
 	return true;
 }
 
+bool KhinsiderParser::ParseAlbumPageHtml(const QByteArray &Html, QSharedPointer<Album> Out) {
+	if (!Out || Html.isEmpty()) {
+		return false;
+	}
+
+	htmlDocPtr doc = htmlReadMemory(Html.constData(), Html.size(), nullptr, nullptr,
+	                                HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
+	if (!doc) {
+		return false;
+	}
+
+	const bool parsed = Out->isPlaylist()
+		? ParsePlaylist(doc, Out)
+		: ParseAlbumFullData(doc, Out);
+	xmlFreeDoc(doc);
+	return parsed;
+}
+
 bool KhinsiderParser::ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Album> Out) {
 	if (!Document || !Out) {
 		return false;

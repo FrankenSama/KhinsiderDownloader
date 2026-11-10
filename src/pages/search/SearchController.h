@@ -53,6 +53,17 @@ public slots:
         return count;
     }
 
+    // Queues a single search result and returns its name, or an empty string
+    // when the index is out of range. Used by Enter in the results list.
+    Q_INVOKABLE QString addAlbumToDownloads(int index) {
+        const QSharedPointer<Album> album = m_searchResultVM->getAlbumAt(index);
+        if (!album) {
+            return QString();
+        }
+        emit onDownloadAddRequest(album, DownloadQuality::UNKNOWN);
+        return album->name();
+    }
+
 private:
     QNetworkAccessManager *networkManager;
     SearchResultModel *m_searchResultVM;

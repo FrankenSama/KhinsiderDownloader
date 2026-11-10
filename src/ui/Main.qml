@@ -42,8 +42,15 @@ Window {
 
     function refreshTotals() {
         var vm = app.downloaderController.downloaderVM;
+        // Capture the previous state: the queue counts as finished only when
+        // it had work and now has none left.
+        var hadPending = window.pendingSongs > 0;
         window.totalSongCount = vm.totalSongs();
         window.downloadedSongs = vm.totalDownloadedSongs();
+
+        if (hadPending && window.pendingSongs === 0 && window.totalSongCount > 0) {
+            toast.show(qsTr("All downloads finished"));
+        }
     }
 
     Component.onCompleted: {

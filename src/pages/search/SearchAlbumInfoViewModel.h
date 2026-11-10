@@ -1,6 +1,7 @@
 #ifndef SEARCHALBUMINFOVIEWMODEL_H
 #define SEARCHALBUMINFOVIEWMODEL_H
 #include <QObject>
+#include <QPointer>
 #include "Album.h"
 
 class SearchAlbumInfoViewModel : public QObject {
@@ -91,7 +92,9 @@ public slots:
     }
 
 private:
-    Album *m_currentAlbum = nullptr; //TODO: well...
+    // Guarded pointer: QML keeps a reference to this object, so it must turn
+    // null instead of dangling if the album is destroyed.
+    QPointer<Album> m_currentAlbum;
     QSharedPointer<Album> m_currentAlbumPtr;
     int m_selectedIndex = -1;
 };

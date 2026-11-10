@@ -70,10 +70,12 @@ public:
         return "parsed";
     }
 
-    int downloadedSize() const {
-        int totaldownloadedSize = 0;
+    qint64 downloadedSize() const {
+        qint64 totaldownloadedSize = 0;
         for (const auto song: m_songs) {
-            totaldownloadedSize += song->downloadedSize();
+            if (song) {
+                totaldownloadedSize += song->downloadedSize();
+            }
         }
         return totaldownloadedSize;
     }
@@ -101,6 +103,55 @@ public:
 
     int totalSongs() const {
         return m_songs.size();
+    }
+
+    // Formats ranked from lowest to highest quality. Shared with the
+    // downloader so the size reported for an album always matches the file
+    // that will actually be fetched.
+    static const QMap<QString, int> &formatRanking() {
+        static const QMap<QString, int> ranking = {
+            {"FLAC", 4},
+            {"ALAC", 3},
+            {"AAC", 2},
+            {"MP3", 1}
+        };
+        return ranking;
+    }
+
+    // Total size in bytes of the files this album will download at the
+    // quality it was queued with. The parser records per-format sizes in KB.
+    qint64 totalSize() const {
+        const QMap<QString, int> &ranking = formatRanking();
+        qint64 total = 0;
+        for (const auto &song: m_songs) {
+            if (!song) {
+                continue;
+            }
+
+            const QMap<QString, unsigned long> sizes = song->size();
+            if (sizes.isEmpty()) {
+                continue;
+            }
+
+            QString format;
+            if (m_downloadQuality == DownloadQuality::MP3) {
+                format = QStringLiteral("MP3");
+            } else {
+                int bestRank = 0;
+                for (auto it = sizes.constBegin(); it != sizes.constEnd(); ++it) {
+                    const int rank = ranking.value(it.key(), 0);
+                    if (rank > bestRank) {
+                        bestRank = rank;
+                        format = it.key();
+                    }
+                }
+            }
+
+            if (!format.isEmpty()) {
+                total += static_cast<qint64>(sizes.value(format, 0)) * 1024;
+            }
+        }
+        return total;
     }
 
     // Metadata setters

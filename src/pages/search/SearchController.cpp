@@ -2,8 +2,6 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QQmlApplicationEngine>
-#include <libxml/HTMLparser.h>
-#include <libxml/xpath.h>
 
 #include "ImagePrecache.h"
 #include "KhinsiderRequest.h"
@@ -92,7 +90,8 @@ void SearchController::doSearch(const QString &query) {
     });
 }
 
-//TODO: Duplicated code! We have this already in DownloadController!
+// Parsing lives in KhinsiderParser so the downloader and this preview panel
+// stay in sync.
 void SearchController::fetchFullAlbumData(QSharedPointer<Album> album) {
     if (!album || album->isInfoParsed()) {
         return;
@@ -124,21 +123,7 @@ void SearchController::fetchFullAlbumData(QSharedPointer<Album> album) {
         const QByteArray html = reply->readAll();
         reply->deleteLater();
 
-        htmlDocPtr doc = htmlReadMemory(html.constData(), html.size(), nullptr, nullptr,
-                                        HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
-
-        if (!doc)
-        {
-            album->setHasErrors(true);
-            qWarning() << "HTML read failed";
-            return;
-        }
-
-        const bool parsed = KhinsiderParser::ParseAlbumFullData(doc, album);
-        xmlFreeDoc(doc);
-
-        if (!parsed)
-        {
+        if (!KhinsiderParser::ParseAlbumPageHtml(html, album)) {
             album->setHasErrors(true);
             return;
         }

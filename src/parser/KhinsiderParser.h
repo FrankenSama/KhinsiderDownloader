@@ -22,6 +22,11 @@ class KhinsiderParser {
 public:
 	static bool ParseAlbumPage(htmlDocPtr Document, QVector<QSharedPointer<Album> > &Out);
 
+	// Parses a fetched album page straight from its HTML. Playlist pages are
+	// handled here too, so the search preview and the downloader share one
+	// code path.
+	static bool ParseAlbumPageHtml(const QByteArray &Html, QSharedPointer<Album> Out);
+
 	static bool ParseAlbumFullData(htmlDocPtr Document, QSharedPointer<Album> Out);
 
 	static bool ParseSearchResults(htmlDocPtr Document, QVector<QSharedPointer<Album> > &Out);
