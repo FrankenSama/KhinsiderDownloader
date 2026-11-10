@@ -94,21 +94,6 @@ Item {
 
               }
 
-              layer.enabled: true
-              layer.effect: OpacityMask{
-                     maskSource: Item{
-                            width: mainrect.width
-                            height: mainrect.height
-                            Rectangle{
-
-                                   width: parent.width
-
-                                   height: parent.height
-                                   radius: 20
-                            }
-                     }
-              }
-
               id:mainrect
               color: "#6C98C4" // background
               width: parent.width
@@ -178,6 +163,7 @@ Item {
                      visible: false
                      width: parent.width
                      height: parent.height
+                     radius: 20
                      color: "#bc000000"
                      id: darkoverlay
 

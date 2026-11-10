@@ -1,57 +1,53 @@
 import QtQuick 2.15
-import QtQuick.Controls
-import "../shared"
+import QtQuick.Controls.Basic
+
 Rectangle
 {
        color: "#34495E"
        id:root
        height: 800
        width: 600
-       WScrollView
+
+       ListView
        {
-              id: scrollView
+              id: downloadList
 
               width: parent.width
-              height: parent.height * 0.9
               anchors.top: parent.top
               anchors.topMargin: 10
               anchors.bottom: s.top
               clip: true
+              spacing: 5
+              reuseItems: true
+              model: app.downloaderController.downloaderVM
+              ScrollBar.vertical: ScrollBar {
+                     policy: ScrollBar.AlwaysOn
+              }
 
-              Column
-              {
+              delegate: Item {
+                     width: downloadList.width
+                     height: 45
 
-                     width: root.width * 0.92;
-                     height: root.height;
-                     leftPadding: 10
-                     spacing:5
-                     //anchors.fill: parent
-                     Repeater
+                     AlbumItem
                      {
-                            height:parent.height
-                            model: app.downloaderController.downloaderVM
-                            width : parent.width
-                            delegate: AlbumItem
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width * 0.92
+                            height: parent.height
+                            progress: model.progress
+                            state: model.state
+                            label: model.name
+                            donwloadedSongs: model.downloadedSongs
+                            totalSongs: model.totalSongs
+                            speedInBytes: model.speed;
+                            onCancelRequested:
                             {
-                                   progress: model.progress
-                                   state: model.state
-                                   height: 45
-                                   label: model.name
-                                   width : parent.width
-                                   donwloadedSongs: model.downloadedSongs
-                                   totalSongs: model.totalSongs
-                                   speedInBytes: model.speed;
-                                   onCancelRequested:
-                                   {
-                                          app.downloaderController.downloaderVM.cancelAlbum(model.index)
-                                   }
-                                   onRetryRequested :
-                                   {
-                                          app.downloaderController.downloaderVM.retryAlbum(model.index);
-                                   }
+                                   app.downloaderController.downloaderVM.cancelAlbum(index)
+                            }
+                            onRetryRequested :
+                            {
+                                   app.downloaderController.downloaderVM.retryAlbum(index);
                             }
                      }
-
               }
        }
        Item
@@ -142,4 +138,3 @@ Rectangle
 
        }
 }
-

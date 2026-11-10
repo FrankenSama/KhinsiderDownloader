@@ -17,15 +17,6 @@ ColumnLayout{
             col.imageIndex = 0
             col.imageTarget = 0
             fadeOut.start()
-            if(app.searchController.albumInfoVM.currentAlbum.isInfoParsed)
-            {
-                blur.radius = 0;
-            }
-            else
-            {
-                blur.radius = 30;
-            }
-            blur.source = profileImage;
         }
     }
     Item {
@@ -34,12 +25,10 @@ ColumnLayout{
         Image {
             SequentialAnimation {
                 id: fadeIn
-                NumberAnimation { target: blur; property: "opacity"; to: 1; duration: 100 }
                 NumberAnimation { target: profileImage; property: "opacity"; to: 1; duration: 100 }
             }
             SequentialAnimation {
                 id: fadeOut
-                NumberAnimation { target: blur; property: "opacity"; to: 0; duration: 100 }
                 NumberAnimation { target: profileImage; property: "opacity"; to: 0; duration: 100 }
                 onStopped:
                 {
@@ -55,6 +44,9 @@ ColumnLayout{
                 }
             }
             cache: true
+            asynchronous: true
+            sourceSize.width: 512
+            mipmap: true
             id: profileImage
             anchors.fill: parent
             anchors.leftMargin: 10
@@ -78,32 +70,6 @@ ColumnLayout{
                 }
             }
 
-        }
-        FastBlur {
-            id: blur
-            cached:false
-            anchors.fill: profileImage
-            source: profileImage
-            radius: 30
-            Behavior on radius {
-                NumberAnimation {
-                    duration: 100
-                    easing.type: Easing.InOutQuad
-                }
-            }
-            layer.enabled: true
-            layer.effect: OpacityMask{
-                maskSource: Item{
-                    width: profileImage.width
-                    height: profileImage.height
-                    Rectangle{
-                        anchors.centerIn: parent
-                        width: Math.min(profileImage.width, profileImage.height)
-                        height: width
-                        radius: 10
-                    }
-                }
-            }
         }
         BusyIndicator {
             id: busyIndicator
