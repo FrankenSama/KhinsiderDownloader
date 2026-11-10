@@ -165,12 +165,12 @@ jobs:
           restore-keys: |
             windows-cmake-
             
-      # The runner image ships vcpkg as a shallow clone, so the baseline
-      # pinned in vcpkg.json is not in the object database and vcpkg cannot
-      # resolve it ("failed to `git show` versions/baseline.json"). Fetch
-      # exactly that commit before configuring instead of moving the
-      # baseline, which kept the build out of sync with the pinned versions.
-      - name: Prepare VCPKG baseline
+      # The runner image ships vcpkg as a shallow clone of the latest tip, so
+      # the baseline pinned in vcpkg.json is neither present nor checked out.
+      # vcpkg then resolves ports against a port tree that does not match the
+      # baseline and fails with "no version database entry for ...". Fetch the
+      # pinned commit and check it out so the whole registry is consistent.
+      - name: Check out the pinned VCPKG baseline
         run: |
           $baseline = (Get-Content vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
           Write-Host "Pinned vcpkg baseline: $baseline"
@@ -179,8 +179,9 @@ jobs:
             Write-Host "Targeted fetch failed; fetching the full history instead"
             git -C C:\vcpkg fetch --unshallow
           }
-          git -C C:\vcpkg cat-file -e "$baseline^{commit}"
-          Write-Host "Baseline commit is available"
+          git -C C:\vcpkg checkout --force --detach $baseline
+          git -C C:\vcpkg rev-parse HEAD
+          Write-Host "vcpkg is now on the pinned baseline"
           
       - name: Build with CMake
         env:
