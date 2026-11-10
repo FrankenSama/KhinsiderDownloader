@@ -114,6 +114,7 @@ void DownloaderModel::cancelAllDownloads() {
     for (const auto &album: m_albums) {
         if (album) {
             disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+            disconnect(album.data(), &Album::stateChanged, this, nullptr);
         }
     }
     m_albums.clear();
@@ -137,9 +138,11 @@ void DownloaderModel::cancelAlbum(int index) {
     beginResetModel();
     if (album) {
         disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+        disconnect(album.data(), &Album::stateChanged, this, nullptr);
     }
     m_albums.removeAt(index);
     endResetModel();
+    emit totalsChanged();
 
     if (album) {
         emit albumCancelRequested(album.data());
@@ -153,6 +156,12 @@ void DownloaderModel::retryAlbum(int index) {
     }
 }
 
+void DownloaderModel::openAlbumFolder(int index) {
+    if (index >= 0 && index < m_albums.size() && m_albums.at(index)) {
+        emit albumFolderRequested(m_albums.at(index).data());
+    }
+}
+
 
 void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
     beginResetModel();
@@ -160,6 +169,7 @@ void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
     for (const auto &album: m_albums) {
         if (album) {
             disconnect(album.data(), &Album::progressUpdated, this, nullptr);
+            disconnect(album.data(), &Album::stateChanged, this, nullptr);
         }
     }
 
@@ -168,7 +178,7 @@ void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
         if (!album) continue;
 
         Album *albumPtr = album.data();
-        connect(albumPtr, &Album::progressUpdated, this, [this, albumPtr]() {
+        auto refresh = [this, albumPtr]() {
             int row = -1;
             for (int i = 0; i < m_albums.size(); ++i) {
                 if (m_albums.at(i).data() == albumPtr) {
@@ -178,9 +188,12 @@ void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
             }
             if (row >= 0) emit dataChanged(index(row), index(row));
             emit totalsChanged();
-        });
+        };
+        connect(albumPtr, &Album::progressUpdated, this, refresh);
+        connect(albumPtr, &Album::stateChanged, this, refresh);
     }
     endResetModel();
+    emit totalsChanged();
 }
 
 void DownloaderModel::insertAlbum(const QSharedPointer<Album> &album) {
@@ -192,7 +205,7 @@ void DownloaderModel::insertAlbum(const QSharedPointer<Album> &album) {
     m_albums.append(album);
 
     Album *albumPtr = album.data();
-    connect(albumPtr, &Album::progressUpdated, this, [this, albumPtr]() {
+    auto refresh = [this, albumPtr]() {
         int idx = -1;
         for (int i = 0; i < m_albums.size(); ++i) {
             if (m_albums.at(i).data() == albumPtr) {
@@ -204,6 +217,8 @@ void DownloaderModel::insertAlbum(const QSharedPointer<Album> &album) {
             emit dataChanged(index(idx), index(idx));
             emit totalsChanged();
         }
-    });
+    };
+    connect(albumPtr, &Album::progressUpdated, this, refresh);
+    connect(albumPtr, &Album::stateChanged, this, refresh);
     endInsertRows();
 }

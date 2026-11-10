@@ -114,6 +114,7 @@ qt_add_qml_module(appKhinsiderQT
         src/ui/shared/WNumberBox.qml
         src/ui/shared/WNumberBoxButton.qml
         src/ui/shared/WScrollView.qml
+        src/ui/shared/WToggle.qml
 
         # Search components
         src/ui/search/AlbumImageCaret.qml

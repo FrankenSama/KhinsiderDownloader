@@ -2,6 +2,7 @@
 #include "Album.h"
 
 #include <QDir>
+#include <QDesktopServices>
 #include <QFileInfo>
 #include <QTimer>
 #include <QUrl>
@@ -26,6 +27,7 @@ DownloaderController::DownloaderController(QObject *parent, Settings *settings)
     connect(m_Model, &DownloaderModel::addToDownloadList, this, &DownloaderController::addToDownloadList);
     connect(m_Model, &DownloaderModel::albumCancelRequested, this, &DownloaderController::cancelAlbum);
     connect(m_Model, &DownloaderModel::albumRetryRequested, this, &DownloaderController::retryAlbum);
+    connect(m_Model, &DownloaderModel::albumFolderRequested, this, &DownloaderController::openAlbumFolder);
 
     if (m_settings) {
         m_downloadManager->setDownloadLimitPerThread(m_settings->maxConcurrentDownloadsPerThread());
@@ -522,6 +524,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
         m_settings && m_settings->skipDownloaded()) {
         song->setDownloaded(true);
         emit songDownloadFinished(song);
+        maybeFinishAlbum(album);
         return;
     }
 
@@ -553,6 +556,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
                 qDebug() << "Successfully downloaded:" << song->name() << "to" << filePath;
                 song->setDownloaded(true);
                 emit songDownloadFinished(song);
+                maybeFinishAlbum(album);
                 songDownloadReply->deleteLater();
             }, Qt::QueuedConnection);
 
@@ -730,4 +734,72 @@ void DownloaderController::parseDownloadLinks(QSharedPointer<Album> album) {
             fetchSongDownloadLinks(song, qualityIt.value(), album);
         }
     }
+}
+
+QString DownloaderController::albumFolderPath(const Album *album) const {
+    if (!album || !m_settings) {
+        return QString();
+    }
+
+    const QString downloadPath = m_settings->downloadPath();
+    if (downloadPath.isEmpty()) {
+        return QString();
+    }
+
+    QString albumName = album->name();
+    if (albumName.isEmpty()) {
+        albumName = "Unknown Album";
+    }
+
+    const QString invalidChars = "\\/:*?\"<>|";
+    for (QChar c: invalidChars) {
+        albumName.remove(c);
+    }
+
+    return QDir(downloadPath + QDir::separator() + albumName).absolutePath();
+}
+
+void DownloaderController::maybeFinishAlbum(const QSharedPointer<Album> &album) {
+    if (!album || !album->isDownloading()) {
+        return;
+    }
+
+    // A zero-song album (a failed parse, for instance) must not look finished.
+    if (album->totalSongs() <= 0 || album->downloadedSongs() < album->totalSongs()) {
+        return;
+    }
+
+    album->setIsDownloading(false);
+    emit albumDownloadFinished(album);
+}
+
+void DownloaderController::openAlbumFolder(Album *album) {
+    const QString path = albumFolderPath(album);
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QDir dir(path);
+    if (!dir.exists()) {
+        // The folder may have been moved or never created; fall back to the
+        // download root so the action still does something useful.
+        openDownloadFolder();
+        return;
+    }
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+void DownloaderController::openDownloadFolder() {
+    const QString downloadPath = m_settings ? m_settings->downloadPath() : QString();
+    if (downloadPath.isEmpty()) {
+        return;
+    }
+
+    QDir dir(downloadPath);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
 }

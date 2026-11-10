@@ -36,7 +36,12 @@ public:
     // report success instead of clearing the user's input blindly.
     Q_INVOKABLE int importUrls(const QString &list);
 
+    // Opens the configured download folder in the system file browser.
+    Q_INVOKABLE void openDownloadFolder();
+
 public slots:
+    void openAlbumFolder(Album *album);
+
     void startDownload();
 
     void onDownloadListAdd(QSharedPointer<Album> album, DownloadQuality quality);
@@ -77,6 +82,13 @@ private:
     void onSongLinksFound(QSharedPointer<Song> song, DownloadQuality quality, QSharedPointer<Album> album);
 
     void downloadSongFile(QSharedPointer<Song> song, DownloadQuality quality, QSharedPointer<Album> album);
+
+    // Absolute path of the folder songs for this album are written to.
+    QString albumFolderPath(const Album *album) const;
+
+    // Marks the album as finished once every song is done, so the queue card
+    // stops reporting an active download and offers to open its folder.
+    void maybeFinishAlbum(const QSharedPointer<Album> &album);
 
     DownloadQuality normalizeQuality(DownloadQuality quality) const;
 

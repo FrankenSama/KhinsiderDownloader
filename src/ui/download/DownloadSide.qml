@@ -47,8 +47,25 @@ Rectangle
                             {
                                    app.downloaderController.downloaderVM.retryAlbum(index);
                             }
+                            onOpenFolderRequested:
+                            {
+                                   app.downloaderController.downloaderVM.openAlbumFolder(index);
+                            }
                      }
               }
+       }
+
+       Text
+       {
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.verticalCenter: downloadList.verticalCenter
+              width: parent.width * 0.8
+              visible: downloadList.count === 0
+              horizontalAlignment: Text.AlignHCenter
+              wrapMode: Text.WordWrap
+              color: "#b5ffffff"
+              font.pointSize: 12
+              text: qsTr("No downloads yet.\nSearch for an album or paste links to get started.")
        }
        Item
        {
@@ -59,6 +76,10 @@ Rectangle
               Rectangle {
                      width: parent.width
                      height: 1
+                     color: "#33ffffff"
+                     // The footer is empty until something is queued; don't
+                     // leave a divider floating in an empty panel.
+                     visible: speedText.opacity > 0
               }
               Row
               {

@@ -62,11 +62,12 @@ public:
         if (!m_isInfoParsed) {
             return "unparsed";
         }
-        if (m_isInfoParsed) {
-            return "parsed";
+        // Nothing left to fetch: the queue card should stop looking like an
+        // active download once every song is on disk.
+        if (totalSongs() > 0 && downloadedSongs() >= totalSongs()) {
+            return "complete";
         }
-
-        return "unknown";
+        return "parsed";
     }
 
     int downloadedSize() const {

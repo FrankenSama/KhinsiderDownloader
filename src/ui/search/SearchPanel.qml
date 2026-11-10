@@ -4,20 +4,42 @@ import "../shared"
 import QtQuick.Layouts
 
 Rectangle {
-    width : 800
+    width: 800
     id: mainWindow
-    height : 500
+    height: 500
     color: "#2c3e50"
 
     // Bubbled up to Main.qml, which owns the toast overlay.
     signal toastRequested(string message)
 
-    Connections
-    {
+    function performSearch() {
+        var query = textfield.text.trim();
+        if (query.length === 0) {
+            mainWindow.toastRequested("Type something to search for");
+            return;
+        }
+        app.searchController.doSearch(query);
+    }
+
+    function focusSearch() {
+        textfield.forceActiveFocus();
+        textfield.selectAll();
+    }
+
+    function handleEscape() {
+        if (textfield.text.length > 0) {
+            textfield.text = "";
+            return;
+        }
+        textfield.focus = false;
+    }
+
+    Connections {
         target: app.searchController.searchResultVM
-        function onSelectedIndexChanged()
-        {
-            mainWindow.state = "normal";
+        function onSelectedIndexChanged() {
+            // Keep the info panel hidden until an album is actually selected.
+            mainWindow.state = app.searchController.searchResultVM.selectedIndex >= 0
+                ? "normal" : "expanded";
         }
     }
     state: "expanded"
@@ -43,183 +65,126 @@ Rectangle {
             }
         }
     ]
-    Row
-    {
+    Row {
         id: mainRow
         width: parent.width
         height: parent.height
 
-
-        Column {
+        ColumnLayout {
             id: leftColumn
-            topPadding: 10
-            height: parent.height - 5
-            spacing: 10
+            width: mainRow.width * 0.7
+            height: parent.height
+            spacing: 8
 
-            Item{
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:parent.width * 0.9
+            Item {
+                Layout.preferredHeight: 4
+            }
 
-                height: 40
+            // Search box + primary action
+            Item {
+                id: searchRow
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+                Layout.leftMargin: mainRow.width * 0.05
+                Layout.rightMargin: mainRow.width * 0.05
 
-                //Search Box
                 Row {
                     id: row1
-                    spacing: parent.width * 0.05
+                    anchors.fill: parent
+                    spacing: 10
 
-                    height: 40
-                    width: parent.width
                     Rectangle {
-                        id: rectangle
-
-                        width: parent.width * 0.75
+                        id: searchField
+                        width: parent.width - searchButton.width - row1.spacing
+                        height: parent.height
+                        radius: 15
                         color: "#6C98C4"
 
-                        height: 40
-                        radius: 15
-
                         RowLayout {
-                            id: row
+                            anchors.fill: parent
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 6
+                            spacing: 4
 
-                            height: 40
-                            width: parent.width
-
-                            Item {
+                            TextField {
+                                id: textfield
                                 Layout.fillWidth: true
-                                height: parent.height
-                                Layout.alignment: Qt.AlignVCenter
-                                width: parent.width * 0.9
-
-                                TextField {
-                                    id: textfield
-
-                                    color: "#ffffff"
-                                    font.pointSize: 13
-                                    height: parent.height
-                                    hoverEnabled: true
-                                    placeholderText: "Search..."
-                                    placeholderTextColor: "#b5ffffff"
-                                    verticalAlignment: Text.AlignVCenter
-                                    width: parent.width
-
-                                    background: Rectangle {
-                                        color: "#6C98C4" // match parent background
-                                        radius: 10
-                                    }
-                                    onAccepted:
-                                    {
-                                        if (textfield.text.trim().length === 0) {
-                                            mainWindow.toastRequested("Type something to search for");
-                                            return;
-                                        }
-                                        app.searchController.doSearch(textfield.text);
-                                    }
-
-                                    onHoveredChanged: {
-                                        if (hovered) {
-                                            onPlaceholderHover.start();
-                                        } else {
-                                            onPlaceholderUnHover.start();
-                                        }
-                                    }
-
-                                    PropertyAnimation {
-                                        id: onPlaceholderHover
-
-                                        duration: 100
-                                        property: "placeholderTextColor"
-                                        target: textfield
-                                        to: "#00ffffff" // ~70% opacity
-                                    }
-                                    PropertyAnimation {
-                                        id: onPlaceholderUnHover
-
-                                        duration: 100
-                                        property: "placeholderTextColor"
-                                        target: textfield
-                                        to: "#b5ffffff" // original alpha
-                                    }
-                                }
+                                Layout.fillHeight: true
+                                color: "#ffffff"
+                                font.pointSize: 13
+                                placeholderText: qsTr("Search for a game or album...")
+                                placeholderTextColor: "#b5ffffff"
+                                verticalAlignment: Text.AlignVCenter
+                                selectByMouse: true
+                                background: null
+                                onAccepted: mainWindow.performSearch()
                             }
 
-                            Image {
-                                id: icon
-                                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                            // Clear the current query without leaving the field.
+                            Item {
+                                Layout.preferredWidth: 24
+                                Layout.preferredHeight: 24
+                                visible: textfield.text.length > 0
 
-                                fillMode: Image.PreserveAspectFit
-                                height: parent.height
-                                source: "qrc:/icons/search.svg"
-                                Layout.rightMargin: 5
-
-                                SequentialAnimation {
-                                    id: shrinkAnim
-
-                                    NumberAnimation {
-                                        duration: 100
-                                        property: "scale"
-                                        target: icon
-                                        to: 0.96
-                                    }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\u00d7"
+                                    color: "#e6ffffff"
+                                    font.pointSize: 18
                                 }
-                                SequentialAnimation {
-                                    id: resetAnim
 
-                                    NumberAnimation {
-                                        duration: 100
-                                        property: "scale"
-                                        target: icon
-                                        to: 1.0
-                                    }
-                                }
-                                SequentialAnimation {
-                                    id: growAnim
-
-                                    NumberAnimation {
-                                        duration: 100
-                                        property: "scale"
-                                        target: icon
-                                        to: 1.1
-                                    }
-                                }
                                 MouseArea {
-                                    anchors.bottomMargin: 0
                                     anchors.fill: parent
-                                    anchors.leftMargin: 0
-                                    anchors.rightMargin: 0
-                                    anchors.topMargin: 0
                                     hoverEnabled: true
-
+                                    cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-
-                                        if (textfield.text.trim().length === 0) {
-                                            mainWindow.toastRequested("Type something to search for");
-                                            return;
-                                        }
-                                        app.searchController.doSearch(textfield.text);
-                                    }
-                                    onEntered: {
-                                        growAnim.running = true;
-                                    }
-                                    onExited: {
-                                        resetAnim.running = true;
-                                    }
-                                    onPressed: {
-                                        shrinkAnim.running = true;
-                                    }
-                                    onReleased: {
-                                        growAnim.running = true;
+                                        textfield.text = "";
+                                        textfield.forceActiveFocus();
                                     }
                                 }
                             }
                         }
                     }
-                    WButton {
 
+                    WButton {
+                        id: searchButton
+                        width: 110
                         height: 40
-                        label: "Add All"
-                        width: parent.width * 0.2
-                        onClicked:
-                        {
+                        label: qsTr("Search")
+                        onClicked: mainWindow.performSearch()
+                    }
+                }
+            }
+
+            // Results summary and bulk action
+            Item {
+                id: resultsHeader
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 28 : 0
+                Layout.leftMargin: mainRow.width * 0.05
+                Layout.rightMargin: mainRow.width * 0.05
+                visible: app.searchController.searchResultVM.count > 0
+
+                RowLayout {
+                    anchors.fill: parent
+
+                    Text {
+                        color: "#b5ffffff"
+                        font.pointSize: 11
+                        verticalAlignment: Text.AlignVCenter
+                        text: qsTr("Results") + " (" + app.searchController.searchResultVM.count + ")"
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    WButton {
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 26
+                        fontSize: 11
+                        label: qsTr("Add all")
+                        onClicked: {
                             var added = app.searchController.addAllAlbumsToDownloads();
                             if (added > 0) {
                                 mainWindow.toastRequested("Queued " + added + (added === 1 ? " album" : " albums") + " for download");
@@ -230,49 +195,32 @@ Rectangle {
                     }
                 }
             }
-            //Divider
-            Rectangle {
-                height: 1
-                width: parent.width
-            }
-            //WButton {
-            //    y: 0
-            //    width: 140
-            //    height: 40
 
-            //    label: "StateTest"
-            //    anchors.horizontalCenterOffset: 300
-            //    onClicked:
-            //    {
-            //        console.log("test")
-            //        mainWindow.state = (mainWindow.state === "normal") ? "expanded" : "normal"
-            //    }
-            //}
-            //Search Info
             SearchResultsList {
-                id: searchList;
-                height: parent.height - rectangle.height - 30
-                width: parent.width
+                id: searchList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
             }
         }
-        //SideColumn
-        Column{
-            id:rightColumn
+
+        // Side column
+        Column {
+            id: rightColumn
             height: parent.height
             width: parent.width
 
-            // Right panel
             Rectangle {
                 id: rightPanel
                 width: parent.width
                 height: parent.height
                 color: "#34495e"
 
-
-                AlbumInfoSide
-                {
+                AlbumInfoSide {
                     width: parent.width
                     height: parent.height
+                    onToastRequested: function(message) {
+                        mainWindow.toastRequested(message);
+                    }
                 }
             }
         }

@@ -30,7 +30,7 @@ Item {
 
         delegate: Item {
             width: resultsList.width
-            height: 45
+            height: 58
 
             Rectangle {
                 id: rectangle
@@ -74,20 +74,31 @@ Item {
                     }
                 }
 
-                Text {
+                Column {
                     anchors.left: parent.left
-                    anchors.leftMargin: 10
                     anchors.right: parent.right
-                    anchors.rightMargin: 10
-                    color: "white"
-                    elide: Text.ElideRight
-                    font.bold: true
-                    font.pointSize: 13
-                    height: parent.height
-                    horizontalAlignment: Text.AlignLeft
-                    text: model.name
-                    verticalAlignment: Text.AlignVCenter
-                    width: parent.width
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1
+
+                    Text {
+                        width: parent.width
+                        color: "white"
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pointSize: 13
+                        text: model.name
+                    }
+
+                    Text {
+                        width: parent.width
+                        color: "#d9ffffff"
+                        elide: Text.ElideRight
+                        font.pointSize: 10
+                        text: model.details
+                        visible: model.details.length > 0
+                    }
                 }
             }
         }

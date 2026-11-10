@@ -23,6 +23,11 @@ class Settings : public QObject {
     Q_PROPERTY(bool downloadArt READ downloadArt WRITE setDownloadArt NOTIFY downloadArtChanged)
     Q_PROPERTY(bool skipDownloaded READ skipDownloaded WRITE setSkipDownloaded NOTIFY settingsChanged)
 
+    // Window geometry and the last visited tab, restored on the next launch.
+    Q_PROPERTY(int windowWidth READ windowWidth NOTIFY windowStateChanged)
+    Q_PROPERTY(int windowHeight READ windowHeight NOTIFY windowStateChanged)
+    Q_PROPERTY(QString lastTab READ lastTab NOTIFY windowStateChanged)
+
 public:
     explicit Settings(QObject *parent = nullptr)
         : QObject(parent) {
@@ -37,6 +42,14 @@ public:
 
     int maxConcurrentDownloadsPerThread() { return m_maxConcurrentDownloadsPerThread; }
     bool downloadArt() { return m_downloadArt; }
+    int windowWidth() const { return m_windowWidth; }
+    int windowHeight() const { return m_windowHeight; }
+    QString lastTab() const { return m_lastTab; }
+
+    // Persists the window geometry without marking the rest of the settings
+    // dirty (resizing should not trigger a full config rewrite).
+    Q_INVOKABLE void saveWindowState(int width, int height, const QString &tab);
+
 signals:
     void downloadPathChanged();
 
@@ -51,6 +64,8 @@ signals:
     void downloadArtChanged();
 
     void maxConcurrentDownloadsPerThreadChanged();
+
+    void windowStateChanged();
 
 public slots:
     void setMaxConcurrentDownloadsPerThread(int maxConcurrentDownloadsPerThread) {
@@ -136,6 +151,9 @@ private:
     int m_downloadThreads = 1;
     DownloadQuality m_preferredAudioQuality = DownloadQuality::MP3;
     bool m_skipDownloaded = true;
+    int m_windowWidth = 1000;
+    int m_windowHeight = 600;
+    QString m_lastTab = "searchtab";
 };
 
 

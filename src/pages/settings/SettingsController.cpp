@@ -43,6 +43,7 @@ SettingsController::SettingsController(QObject *parent, Settings *settings): QOb
     if (m_SettingsObject) {
         connect(m_SettingsObject, &Settings::settingsChanged, m_settingsVM, &SettingsViewModel::settingsChanged);
         connect(m_SettingsObject, &Settings::settingsChanged, this, &SettingsController::saveConfig);
+        connect(m_SettingsObject, &Settings::windowStateChanged, this, &SettingsController::saveConfig);
     }
 }
 
@@ -59,5 +60,8 @@ void SettingsController::saveConfig() {
                         static_cast<int>(m_SettingsObject->maxConcurrentDownloadsPerThread()));
     m_settings.setValue("downloadArt", static_cast<bool>(m_SettingsObject->downloadArt()));
     m_settings.setValue("skipDownloaded", static_cast<bool>(m_SettingsObject->skipDownloaded()));
+    m_settings.setValue("windowWidth", m_SettingsObject->windowWidth());
+    m_settings.setValue("windowHeight", m_SettingsObject->windowHeight());
+    m_settings.setValue("lastTab", m_SettingsObject->lastTab());
     m_settings.sync();
 }

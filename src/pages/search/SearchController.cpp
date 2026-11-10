@@ -21,6 +21,13 @@ SearchController::SearchController(QObject *parent) {
             this, &SearchController::fetchFullAlbumData);
     connect(m_searchResultVM, &SearchResultModel::albumSelected,
             m_albumInfoVM, &SearchAlbumInfoViewModel::setCurrentAlbum);
+    // A new search or a failed one resets the selection; the info sidebar must
+    // not keep showing the previous album.
+    connect(m_searchResultVM, &SearchResultModel::selectedIndexChanged, this, [this]() {
+        if (m_searchResultVM->selectedIndex() < 0) {
+            m_albumInfoVM->setCurrentAlbum(QSharedPointer<Album>());
+        }
+    });
     connect(this, &SearchController::searchResultsReceived,
             m_searchResultVM, &SearchResultModel::onSearchResultsReceived);
     connect(m_searchResultVM, &SearchResultModel::performSearch,

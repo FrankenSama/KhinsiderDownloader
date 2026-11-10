@@ -42,6 +42,9 @@ public:
 
     Q_INVOKABLE int totalSongs() const;
 
+    // Opens the folder this album was downloaded into.
+    Q_INVOKABLE void openAlbumFolder(int index);
+
 public slots:
     void cancelAllDownloads();
 
@@ -57,6 +60,8 @@ signals:
     void albumCancelRequested(Album *album);
 
     void albumRetryRequested(Album *album);
+
+    void albumFolderRequested(Album *album);
 
     void totalsChanged();
 

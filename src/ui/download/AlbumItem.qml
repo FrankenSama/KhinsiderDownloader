@@ -7,6 +7,7 @@ Item {
 
        signal cancelRequested();
        signal retryRequested();
+       signal openFolderRequested();
        property var donwloadedSongs;
        property var totalSongs;
        property var speedInBytes;
@@ -38,6 +39,7 @@ Item {
                      PropertyChanges { target: downloadstatus; visible: true }
                      PropertyChanges { target: fileslabel; visible: true }
                      PropertyChanges { target: restartbutton; visible: false }
+                     PropertyChanges { target: folderbutton; visible: false }
 
               },
               State {
@@ -48,6 +50,7 @@ Item {
                      PropertyChanges { target: downloadstatus; visible: false }
                      PropertyChanges { target: fileslabel; visible: false }
                      PropertyChanges { target: restartbutton; visible: false }
+                     PropertyChanges { target: folderbutton; visible: false }
 
               },
               State {
@@ -58,6 +61,18 @@ Item {
                      PropertyChanges { target: downloadstatus; visible: true }
                      PropertyChanges { target: fileslabel; visible: true }
                       PropertyChanges { target: restartbutton; visible: false }
+                     PropertyChanges { target: folderbutton; visible: false }
+
+              },
+              State {
+                     name: "complete"
+                     PropertyChanges { target: percentagebar; color:"#2E7D32" }
+                     PropertyChanges { target: mainrect; color:"#4CAF50" }
+                     PropertyChanges { target: perclabel; visible: false}
+                     PropertyChanges { target: downloadstatus; visible: false }
+                     PropertyChanges { target: fileslabel; visible: true }
+                     PropertyChanges { target: restartbutton; visible: false }
+                     PropertyChanges { target: folderbutton; visible: true }
 
               },
               State {
@@ -68,6 +83,7 @@ Item {
                      PropertyChanges { target: downloadstatus; visible: false }
                      PropertyChanges { target: fileslabel; visible: true }
                      PropertyChanges { target: restartbutton; visible: true }
+                     PropertyChanges { target: folderbutton; visible: false }
 
               }
        ]
@@ -231,6 +247,32 @@ Item {
                                        }
                                    }
                             }
+                            Image {
+                                   id: folderbutton
+                                   Layout.preferredWidth: 18
+                                   Layout.preferredHeight: 18
+                                   Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                   visible: false
+                                   property string iconFallback: "qrc:/icons/folder.svg"
+                                   source: "../../../icons/folder.svg"
+                                   fillMode: Image.PreserveAspectFit
+                                   MouseArea
+                                   {
+                                       width: parent.width
+                                       height: parent.height
+                                       onClicked:
+                                       {
+                                           openFolderRequested();
+                                       }
+                                   }
+
+                                   onStatusChanged: {
+                                       if (status === Image.Error) {
+                                           source = iconFallback;
+                                       }
+                                   }
+                            }
+
                      }
               }
        }

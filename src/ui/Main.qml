@@ -11,23 +11,108 @@ Window {
     id: window
     width: 1000
     height: 600
-    onHeightChanged: {
-        if(maincol.state === "abouttab")
-        {
-            //TODO: Meh solution
-            slider.jump(leftaboutbutton);
-        }
-    }
     minimumHeight: 600
     minimumWidth: 1000
     visible: true
     color: "#2c3e50"
-    title: qsTr("Khinsider Downloader - QT")
+    title: qsTr("Khinsider Downloader - QT") + (window.pendingSongs > 0
+        ? "  -  " + window.downloadedSongs + "/" + window.totalSongCount
+        : "")
 
     // Set once the user has confirmed quitting while work is still pending.
     property bool allowQuit: false
 
+    // Mirrored from the downloader model so the title bar and the sidebar badge
+    // can react to progress (the model only exposes invokable getters).
+    property int totalSongCount: 0
+    property int downloadedSongs: 0
+    readonly property int pendingSongs: Math.max(0, totalSongCount - downloadedSongs)
+
+    function showTab(name) {
+        maincol.state = name;
+        if (name === "downloadtab")
+            leftPanel.currentTabButton = leftdownloadbutton;
+        else if (name === "searchtab")
+            leftPanel.currentTabButton = leftsearchbutton;
+        else if (name === "settingstab")
+            leftPanel.currentTabButton = leftsettingsbutton;
+        else if (name === "abouttab")
+            leftPanel.currentTabButton = leftaboutbutton;
+    }
+
+    function refreshTotals() {
+        var vm = app.downloaderController.downloaderVM;
+        window.totalSongCount = vm.totalSongs();
+        window.downloadedSongs = vm.totalDownloadedSongs();
+    }
+
+    Component.onCompleted: {
+        window.width = app.settings.windowWidth;
+        window.height = app.settings.windowHeight;
+
+        var tab = app.settings.lastTab;
+        if (tab !== "downloadtab" && tab !== "searchtab" && tab !== "settingstab"
+                && tab !== "abouttab") {
+            tab = "searchtab";
+        }
+        // Wait for the sidebar to be laid out before moving the slider.
+        Qt.callLater(function() {
+            window.showTab(tab);
+        });
+        window.refreshTotals();
+    }
+
+    Connections {
+        target: app.downloaderController.downloaderVM
+
+        function onTotalsChanged() {
+            window.refreshTotals();
+        }
+    }
+
+    // Keyboard shortcuts. The sidebar buttons stay the primary navigation.
+    Shortcut {
+        sequence: "Ctrl+F"
+        onActivated: {
+            window.showTab("searchtab");
+            searchPanel.focusSearch();
+        }
+    }
+    Shortcut {
+        sequence: "Ctrl+1"
+        onActivated: window.showTab("downloadtab")
+    }
+    Shortcut {
+        sequence: "Ctrl+2"
+        onActivated: window.showTab("searchtab")
+    }
+    Shortcut {
+        sequence: "Ctrl+3"
+        onActivated: window.showTab("settingstab")
+    }
+    Shortcut {
+        sequence: "Ctrl+4"
+        onActivated: window.showTab("abouttab")
+    }
+    Shortcut {
+        sequence: "Escape"
+        onActivated: {
+            if (quitOverlay.visible) {
+                quitOverlay.visible = false;
+            } else if (searchPanel.visible) {
+                searchPanel.handleEscape();
+            }
+        }
+    }
+
+    onHeightChanged: {
+        // The slider follows the active button through a binding, so nothing
+        // else needs to be done when the window is resized.
+    }
+
     onClosing: function(close) {
+        app.settings.saveWindowState(window.width, window.height, maincol.state);
+
         var vm = app.downloaderController.downloaderVM;
         var hasPendingWork = vm.totalSongs() > 0 && vm.totalDownloadedSongs() < vm.totalSongs();
         if (!window.allowQuit && hasPendingWork) {
@@ -38,7 +123,7 @@ Window {
 
     Column {
         id: maincol
-        state: "downloadtab"
+        state: "searchtab"
         states: [
             State {
                 name: "downloadtab" //centerPanel
@@ -75,21 +160,6 @@ Window {
         ]
         anchors.fill: parent
         spacing: 0
-        // Header
-        //Rectangle {
-        //    width: parent.width
-        //    height: parent.height * 0.05
-        //    color: "#34495e"
-        //    Text {
-        //        anchors.fill: parent
-        //        anchors.leftMargin: 10
-        //        text: "KhinsiderDownloader 🎵"
-        //        color: "white"
-        //        font.pixelSize: 20
-        //        horizontalAlignment: Text.AlignLeft
-        //        verticalAlignment: Text.AlignVCenter
-        //    }
-        //}
         Row {
             width: parent.width
             height: parent.height * 1
@@ -102,28 +172,30 @@ Window {
                 Layout.fillHeight: true
                 height: parent.height
                 color: "#34495e"
+
+                // The sidebar highlight tracks whichever button is active.
+                property Item currentTabButton: leftdownloadbutton
+
                 Rectangle{
+                    id: slider
+                    color: "#2c3e50"
+                    x: leftPanel.currentTabButton.x
+                    y: leftPanel.currentTabButton.y - (leftPanel.currentTabButton.height * 0.2)
+                    width: leftPanel.currentTabButton.width
+                    height: leftPanel.currentTabButton.height + (leftPanel.currentTabButton.height * 0.4)
+
                     Behavior on y {
                         NumberAnimation {
                             duration: 150
                             easing.type: Easing.InOutQuad
                         }
                     }
-                    x: leftdownloadbutton.x
-                    y: leftdownloadbutton.y - (leftdownloadbutton.height * 0.2)
-                    width: leftdownloadbutton.width
-                    height: leftdownloadbutton.height + (leftdownloadbutton.height * 0.4)
-                    id:slider
-                    color: "#2c3e50"
-                    function jump(id)
-                    {
-                        var offset = id.height * 0.2;
-                        slider.y = id.y - offset;
-                        slider.x = id.x;
-                        slider.width = id.width;
-                        slider.height = id.height + (offset * 2);
+                    Behavior on height {
+                        NumberAnimation {
+                            duration: 150
+                            easing.type: Easing.InOutQuad
+                        }
                     }
-
                 }
 
 
@@ -143,9 +215,9 @@ Window {
                         iconFallback: "../../icons/dl.svg"
                         iconSource: "qrc:/icons/dl.svg"
                         label: "Download"
+                        badgeCount: window.pendingSongs
                         onClicked: {
-                            maincol.state = "downloadtab"
-                            slider.jump(leftdownloadbutton);
+                            window.showTab("downloadtab");
                         }
 
                     }
@@ -158,8 +230,7 @@ Window {
                         iconSource: "qrc:/icons/search.svg"
                         label: "Search"
                         onClicked: {
-                            maincol.state = "searchtab"
-                            slider.jump(leftsearchbutton);
+                            window.showTab("searchtab");
                         }
                     }
 
@@ -171,8 +242,7 @@ Window {
                         iconSource: "qrc:/icons/settings.svg"
                         label: "Settings"
                         onClicked: {
-                            maincol.state = "settingstab"
-                            slider.jump(leftsettingsbutton);
+                            window.showTab("settingstab");
                         }
                     }
 
@@ -188,8 +258,7 @@ Window {
                         iconSource: "qrc:/icons/about.svg"
                         label: "About"
                         onClicked: {
-                            maincol.state = "abouttab"
-                            slider.jump(leftaboutbutton);
+                            window.showTab("abouttab");
                         }
                     }
                     Item {

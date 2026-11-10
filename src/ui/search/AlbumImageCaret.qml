@@ -88,11 +88,13 @@ ColumnLayout{
     }
 
     Rectangle {
+        id: caretBar
+        visible: col.imageSources.length > 1
         color: "#6C98C4"
         width: parent.width * 0.8
         radius: 10
         Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-        height: 45
+        height: visible ? 45 : 0
         Row
         {
             id: row

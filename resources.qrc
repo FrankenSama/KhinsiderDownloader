@@ -8,6 +8,7 @@
         <file>icons/settings.svg</file>
         <file>icons/delete.svg</file>
         <file>icons/retry.svg</file>
+        <file>icons/folder.svg</file>
         <file>CONTRIBUTORS.xml</file>
         <file>APP_VERSION</file>
     </qresource>

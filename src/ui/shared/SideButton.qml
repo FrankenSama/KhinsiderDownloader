@@ -9,6 +9,8 @@ Item {
     // Default properties
     property alias iconSource: icon.source
     property alias label: labelText.text
+    // Number shown on the corner badge; hidden when zero.
+    property int badgeCount: 0
     signal clicked();
     signal loaded();
     MouseArea
@@ -50,5 +52,28 @@ Item {
             color: "white"
         }
 
+    }
+
+    Rectangle {
+        id: badge
+
+        visible: root.badgeCount > 0
+        width: Math.max(16, badgeText.implicitWidth + 8)
+        height: 16
+        radius: height / 2
+        color: "#e74c3c"
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.rightMargin: 4
+        anchors.topMargin: 2
+
+        Text {
+            id: badgeText
+
+            anchors.centerIn: parent
+            text: root.badgeCount > 99 ? "99+" : root.badgeCount
+            color: "#ffffff"
+            font.pointSize: 8
+        }
     }
 }
