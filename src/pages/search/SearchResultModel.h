@@ -63,6 +63,7 @@ public slots:
     void onSearchResultsReceived(const QVector<QSharedPointer<Album> > &result) {
         m_selectedIndex = -1;
         setAlbums(result);
+        emit selectedIndexChanged();
         emit searchCompleted();
     }
 
