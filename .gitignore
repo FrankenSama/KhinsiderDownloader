@@ -91,3 +91,6 @@ CMakeLists.txt.user*
 
 # aqtinstall log
 aqtinstall.log
+
+# Local reference material (not part of the project)
+/_reference/
