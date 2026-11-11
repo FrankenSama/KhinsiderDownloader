@@ -2,6 +2,7 @@
 #define DOWNLOADERMODEL_H
 #include <QAbstractListModel>
 #include <QSharedPointer>
+#include <QTimer>
 #include "parser/Album.h"
 
 
@@ -68,7 +69,13 @@ signals:
     void addToDownloadList(const QString &List);
 
 private:
+    // Coalesces the expensive queue-wide totals recomputation. Per-row updates
+    // stay immediate, but a busy queue can emit progress many times a second.
+    void scheduleTotalsChanged();
+
     QVector<QSharedPointer<Album> > m_albums;
+    QTimer m_totalsTimer;
+    bool m_totalsPending = false;
 };
 
 #endif // DOWNLOADERMODEL_H

@@ -3,6 +3,22 @@
 #include "parser/Album.h"
 
 DownloaderModel::DownloaderModel(QObject *parent) : QAbstractListModel(parent) {
+    // Queue-wide totals iterate every song; a busy queue can report progress
+    // far more often than the footer needs. Ten updates a second is plenty.
+    m_totalsTimer.setSingleShot(true);
+    m_totalsTimer.setInterval(100);
+    connect(&m_totalsTimer, &QTimer::timeout, this, [this]() {
+        m_totalsPending = false;
+        emit totalsChanged();
+    });
+}
+
+void DownloaderModel::scheduleTotalsChanged() {
+    if (m_totalsPending) {
+        return;
+    }
+    m_totalsPending = true;
+    m_totalsTimer.start();
 }
 
 int DownloaderModel::rowCount(const QModelIndex &parent) const {
@@ -193,7 +209,7 @@ void DownloaderModel::setAlbums(const QVector<QSharedPointer<Album> > &albums) {
                 }
             }
             if (row >= 0) emit dataChanged(index(row), index(row));
-            emit totalsChanged();
+            scheduleTotalsChanged();
         };
         connect(albumPtr, &Album::progressUpdated, this, refresh);
         connect(albumPtr, &Album::stateChanged, this, refresh);
@@ -221,7 +237,7 @@ void DownloaderModel::insertAlbum(const QSharedPointer<Album> &album) {
         }
         if (idx >= 0) {
             emit dataChanged(index(idx), index(idx));
-            emit totalsChanged();
+            scheduleTotalsChanged();
         }
     };
     connect(albumPtr, &Album::progressUpdated, this, refresh);
