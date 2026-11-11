@@ -89,6 +89,10 @@ Rectangle {
                         onClicked:
                         {
                             var album = app.searchController.albumInfoVM.currentAlbum;
+                            if (album && app.downloaderController.isAlbumQueued(album.albumLink)) {
+                                root.toastRequested(qsTr("That album is already queued"));
+                                return;
+                            }
                             var albumName = album ? album.name : qsTr("Album");
                             app.searchController.albumInfoVM.requestDownload(modelData);
                             root.toastRequested(qsTr("Queued ") + albumName + " (" + modelData + ")");

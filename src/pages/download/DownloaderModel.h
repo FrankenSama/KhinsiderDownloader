@@ -18,7 +18,10 @@ public:
         SizeRole,
         StateRole,
         DownloadedSongsRole,
-        TotalSongsRole
+        TotalSongsRole,
+        DownloadedSizeRole,
+        TotalSizeRole,
+        ErrorRole
     };
 
     explicit DownloaderModel(QObject *parent = nullptr);
@@ -42,6 +45,13 @@ public:
     Q_INVOKABLE int totalDownloadedSongs() const;
 
     Q_INVOKABLE int totalSongs() const;
+
+    // Number of finished albums currently in the queue, used by the bulk
+    // "clear completed" action.
+    Q_INVOKABLE int completedCount() const;
+
+    // Number of albums that failed and can be retried.
+    Q_INVOKABLE int failedCount() const;
 
     // Opens the folder this album was downloaded into.
     Q_INVOKABLE void openAlbumFolder(int index);

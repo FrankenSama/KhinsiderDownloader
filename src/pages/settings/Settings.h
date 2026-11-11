@@ -26,6 +26,11 @@ class Settings : public QObject {
     // Window geometry and the last visited tab, restored on the next launch.
     Q_PROPERTY(int windowWidth READ windowWidth NOTIFY windowStateChanged)
     Q_PROPERTY(int windowHeight READ windowHeight NOTIFY windowStateChanged)
+    Q_PROPERTY(int windowX READ windowX NOTIFY windowStateChanged)
+    Q_PROPERTY(int windowY READ windowY NOTIFY windowStateChanged)
+    // False on first launch or when the saved monitor no longer exists.
+    Q_PROPERTY(bool windowPositionValid READ windowPositionValid NOTIFY windowStateChanged)
+    Q_PROPERTY(bool windowMaximized READ windowMaximized NOTIFY windowStateChanged)
     Q_PROPERTY(QString lastTab READ lastTab NOTIFY windowStateChanged)
 
 public:
@@ -44,11 +49,20 @@ public:
     bool downloadArt() { return m_downloadArt; }
     int windowWidth() const { return m_windowWidth; }
     int windowHeight() const { return m_windowHeight; }
+    int windowX() const { return m_windowX; }
+    int windowY() const { return m_windowY; }
+    bool windowPositionValid() const { return m_windowPositionValid; }
+    bool windowMaximized() const { return m_windowMaximized; }
     QString lastTab() const { return m_lastTab; }
 
     // Persists the window geometry without marking the rest of the settings
     // dirty (resizing should not trigger a full config rewrite).
-    Q_INVOKABLE void saveWindowState(int width, int height, const QString &tab);
+    Q_INVOKABLE void saveWindowState(int width, int height, int x, int y, bool maximized,
+                                     const QString &tab);
+
+    // Restores the preference values to their defaults. Window geometry is
+    // deliberately left alone so the live window does not jump around.
+    Q_INVOKABLE void resetToDefaults();
 
 signals:
     void downloadPathChanged();
@@ -153,6 +167,10 @@ private:
     bool m_skipDownloaded = true;
     int m_windowWidth = 1000;
     int m_windowHeight = 600;
+    int m_windowX = 0;
+    int m_windowY = 0;
+    bool m_windowPositionValid = false;
+    bool m_windowMaximized = false;
     QString m_lastTab = "searchtab";
 };
 

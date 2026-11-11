@@ -57,6 +57,25 @@ Window {
         window.width = app.settings.windowWidth;
         window.height = app.settings.windowHeight;
 
+        // Restore the position only if it still falls on a connected screen;
+        // a saved monitor may have been unplugged since the last launch.
+        if (app.settings.windowPositionValid) {
+            var savedX = app.settings.windowX;
+            var savedY = app.settings.windowY;
+            var onScreen = savedX >= Screen.virtualX
+                && savedX < Screen.virtualX + Screen.width
+                && savedY >= Screen.virtualY
+                && savedY < Screen.virtualY + Screen.height;
+            if (onScreen) {
+                window.x = savedX;
+                window.y = savedY;
+            }
+        }
+
+        if (app.settings.windowMaximized) {
+            window.showMaximized();
+        }
+
         var tab = app.settings.lastTab;
         if (tab !== "downloadtab" && tab !== "searchtab" && tab !== "settingstab"
                 && tab !== "abouttab") {
@@ -102,9 +121,20 @@ Window {
         onActivated: window.showTab("abouttab")
     }
     Shortcut {
+        sequence: "F1"
+        onActivated: {
+            if (shortcutHelp.visible)
+                shortcutHelp.close();
+            else
+                shortcutHelp.open();
+        }
+    }
+    Shortcut {
         sequence: "Escape"
         onActivated: {
-            if (quitOverlay.visible) {
+            if (shortcutHelp.visible) {
+                shortcutHelp.close();
+            } else if (quitOverlay.visible) {
                 quitOverlay.visible = false;
             } else if (searchPanel.visible) {
                 searchPanel.handleEscape();
@@ -118,7 +148,8 @@ Window {
     }
 
     onClosing: function(close) {
-        app.settings.saveWindowState(window.width, window.height, maincol.state);
+        app.settings.saveWindowState(window.width, window.height, window.x, window.y,
+                                     window.visibility === Window.Maximized, maincol.state);
 
         var vm = app.downloaderController.downloaderVM;
         var hasPendingWork = vm.totalSongs() > 0 && vm.totalDownloadedSongs() < vm.totalSongs();
@@ -302,6 +333,7 @@ Window {
                     id: settingsPanel;
                     width: parent.width
                     height: parent.height
+                    onToastRequested: function(message) { toast.show(message); }
                 }
                 DownloadPanel
                 {
@@ -315,6 +347,7 @@ Window {
                     id: aboutPanel;
                     width: parent.width
                     height: parent.height
+                    onShortcutsRequested: shortcutHelp.open()
                 }
             }
         }
@@ -326,6 +359,10 @@ Window {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 28
         z: 1000
+    }
+
+    ShortcutHelp {
+        id: shortcutHelp
     }
 
     // Confirmation shown when the window is closed with downloads still queued.

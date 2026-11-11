@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls.Basic
 import Qt5Compat.GraphicalEffects
 import QtQuick.Layouts
 
@@ -11,24 +12,85 @@ Item {
        property var donwloadedSongs;
        property var totalSongs;
        property var speedInBytes;
+       property var downloadedBytes;
+       property var totalBytes;
+       property var errorMessage;
+
        function formatSpeed(bytesPerSecond) {
            if (bytesPerSecond >= 1024 * 1024) {
                return (bytesPerSecond / (1024 * 1024)).toFixed(2) + " MB/s";
            } else if (bytesPerSecond >= 1024) {
                return (bytesPerSecond / 1024).toFixed(2) + " KB/s";
            } else {
-               return bytesPerSecond + " B/s";
+               return Math.round(bytesPerSecond) + " B/s";
            }
        }
-       onDonwloadedSongsChanged:
-       {
-              fileslabel.text = "Files: " + donwloadedSongs + "/" + totalSongs;
+
+       function formatSizePair(downloaded, total) {
+           if (total >= 1024 * 1024 * 1024)
+               return (downloaded / (1024 * 1024 * 1024)).toFixed(2) + " / "
+                      + (total / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+           if (total >= 1024 * 1024)
+               return (downloaded / (1024 * 1024)).toFixed(1) + " / "
+                      + (total / (1024 * 1024)).toFixed(1) + " MB";
+           if (total >= 1024)
+               return (downloaded / 1024).toFixed(0) + " / "
+                      + (total / 1024).toFixed(0) + " KB";
+           return Math.round(downloaded) + " / " + Math.round(total) + " B";
        }
 
-       onSpeedInBytesChanged:
-       {
-              downloadstatus.text =  "Speed: " + formatSpeed(speedInBytes);
+       function formatEta() {
+           if (!speedInBytes || speedInBytes <= 0 || !totalBytes || totalBytes <= 0)
+               return "";
+           var remaining = Math.max(0, totalBytes - (downloadedBytes || 0));
+           if (remaining <= 0)
+               return "";
+           var seconds = Math.round(remaining / speedInBytes);
+           if (seconds < 60)
+               return seconds + "s left";
+           var minutes = Math.floor(seconds / 60);
+           var secs = seconds % 60;
+           if (minutes < 60)
+               return minutes + "m " + (secs < 10 ? "0" : "") + secs + "s left";
+           var hours = Math.floor(minutes / 60);
+           return hours + "h " + (minutes % 60) + "m left";
        }
+
+       function updateStats() {
+              if (state === "errored" && errorMessage && errorMessage.length > 0) {
+                     fileslabel.text = errorMessage;
+              } else {
+                     fileslabel.text = "Files: " + donwloadedSongs + "/" + totalSongs;
+              }
+
+              if (totalBytes > 0) {
+                     var downloaded = downloadedBytes || 0;
+                     // Advertised sizes are estimates; once every file is on
+                     // disk report the full total instead of a short number.
+                     if (totalSongs > 0 && donwloadedSongs >= totalSongs)
+                            downloaded = totalBytes;
+                     sizelabel.text = formatSizePair(downloaded, totalBytes);
+              } else {
+                     sizelabel.text = "";
+              }
+
+              var status = "";
+              if (speedInBytes > 0) {
+                     status = formatSpeed(speedInBytes);
+                     var eta = formatEta();
+                     if (eta.length > 0)
+                            status += "  ·  " + eta;
+              }
+              downloadstatus.text = status;
+       }
+
+       onDonwloadedSongsChanged: updateStats()
+       onTotalSongsChanged: updateStats()
+       onDownloadedBytesChanged: updateStats()
+       onTotalBytesChanged: updateStats()
+       onSpeedInBytesChanged: updateStats()
+       onErrorMessageChanged: updateStats()
+       onStateChanged: updateStats()
 
        states: [
               State {
@@ -178,6 +240,19 @@ Item {
 
                             Text
                             {
+                                   id: sizelabel;
+                                   Layout.preferredWidth: 94
+                                   visible: text.length > 0
+                                   text: ""
+                                   color: Theme.textMuted
+                                   elide: Text.ElideRight
+                                   horizontalAlignment: Text.AlignRight
+                                   verticalAlignment: Text.AlignVCenter
+                                   font.pointSize: 9
+                            }
+
+                            Text
+                            {
                                    id: perclabel;
                                    Layout.preferredWidth: 44
                                    text: percentagebar.percentage + "%"
@@ -200,7 +275,7 @@ Item {
                                    Layout.fillWidth: true
                                    text: "Files: 0/0"
                                    elide: Text.ElideRight
-                                   color: Theme.textMuted
+                                   color: state === "errored" ? Theme.danger : Theme.textMuted
                                    horizontalAlignment: Text.AlignLeft
                                    verticalAlignment: Text.AlignVCenter
                                    font.pointSize: 10
@@ -227,6 +302,10 @@ Item {
                                    source: "../../../icons/retry.svg"
                                    fillMode: Image.PreserveAspectFit
 
+                                   ToolTip.visible: retryArea.containsMouse
+                                   ToolTip.delay: 400
+                                   ToolTip.text: qsTr("Retry download")
+
                                    ColorOverlay {
                                           anchors.fill: parent
                                           source: parent
@@ -236,6 +315,9 @@ Item {
                                    {
                                          width: parent.width
                                          height: parent.height
+                                         id: retryArea
+                                         hoverEnabled: true
+                                         cursorShape: Qt.PointingHandCursor
                                          onClicked:
                                          {
                                              retryRequested();
@@ -257,10 +339,17 @@ Item {
                                    property string iconFallback: "qrc:/icons/delete.svg"
                                    source: "../../../icons/delete.svg"
                                    fillMode: Image.PreserveAspectFit
+
+                                   ToolTip.visible: removeArea.containsMouse
+                                   ToolTip.delay: 400
+                                   ToolTip.text: qsTr("Remove from queue")
                                    MouseArea
                                    {
                                          width: parent.width
                                          height: parent.height
+                                         id: removeArea
+                                         hoverEnabled: true
+                                         cursorShape: Qt.PointingHandCursor
                                          onClicked:
                                          {
                                                 cancelRequested();
@@ -282,10 +371,18 @@ Item {
                                    property string iconFallback: "qrc:/icons/folder.svg"
                                    source: "../../../icons/folder.svg"
                                    fillMode: Image.PreserveAspectFit
+
+                                   ToolTip.visible: folderArea.containsMouse
+                                   ToolTip.delay: 400
+                                   ToolTip.text: qsTr("Open album folder")
+
                                    MouseArea
                                    {
+                                       id: folderArea
                                        width: parent.width
                                        height: parent.height
+                                       hoverEnabled: true
+                                       cursorShape: Qt.PointingHandCursor
                                        onClicked:
                                        {
                                            openFolderRequested();

@@ -17,6 +17,13 @@ public:
 public:
     SettingsViewModel *settingsVM() { return m_settingsVM; }
 
+public:
+    // Opens the folder that contains config.ini in the system file browser.
+    Q_INVOKABLE void openConfigFolder();
+
+    // Restores the preference values to their defaults and saves them.
+    Q_INVOKABLE void resetToDefaults();
+
 public slots:
     void saveConfig();
 

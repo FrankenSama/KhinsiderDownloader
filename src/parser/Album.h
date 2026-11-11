@@ -26,6 +26,8 @@ class Album : public QObject {
     Q_PROPERTY(bool isInfoParsed READ isInfoParsed WRITE setIsInfoParsed NOTIFY stateChanged)
     Q_PROPERTY(bool isDownloading READ isDownloading WRITE setIsDownloading NOTIFY stateChanged)
     Q_PROPERTY(bool hasErrors READ hasErrors WRITE setHasErrors NOTIFY stateChanged)
+    // Human-readable reason for the most recent failure, shown in the queue.
+    Q_PROPERTY(QString lastError READ lastError WRITE setLastError NOTIFY stateChanged)
     Q_PROPERTY(QString state READ state NOTIFY stateChanged)
 
 public:
@@ -48,6 +50,7 @@ public:
     bool isInfoParsed() const { return m_isInfoParsed; }
     bool isDownloading() const { return m_isDownloading; }
     bool hasErrors() const { return m_hasErrors; }
+    QString lastError() const { return m_lastError; }
     DownloadQuality downloadQuality() const { return m_downloadQuality; }
 
     void resetState();
@@ -283,6 +286,13 @@ public:
         }
     }
 
+    void setLastError(const QString &lastError) {
+        if (m_lastError != lastError) {
+            m_lastError = lastError;
+            emit stateChanged();
+        }
+    }
+
     void setDownloadQuality(DownloadQuality downloadQuality) {
         if (m_downloadQuality != downloadQuality) {
             m_downloadQuality = downloadQuality;
@@ -330,6 +340,7 @@ private:
     bool m_isInfoParsed = false;
     bool m_isDownloading = false;
     bool m_hasErrors = false;
+    QString m_lastError;
     DownloadQuality m_downloadQuality = UNKNOWN;
 };
 

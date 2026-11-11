@@ -108,6 +108,7 @@ qt_add_qml_module(appKhinsiderQT
         src/ui/Main.qml
         
         # Shared components
+        src/ui/shared/ShortcutHelp.qml
         src/ui/shared/SideButton.qml
         src/ui/shared/Toast.qml
         src/ui/shared/WButton.qml

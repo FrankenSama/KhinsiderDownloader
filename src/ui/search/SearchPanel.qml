@@ -199,11 +199,29 @@ Rectangle {
                         fontSize: 11
                         label: qsTr("Add all")
                         onClicked: {
-                            var added = app.searchController.addAllAlbumsToDownloads();
+                            var vm = app.searchController.searchResultVM;
+                            var added = 0;
+                            var skipped = 0;
+                            for (var i = 0; i < vm.count; ++i) {
+                                if (app.downloaderController.isAlbumQueued(vm.albumLinkAt(i))) {
+                                    skipped++;
+                                } else {
+                                    added++;
+                                }
+                            }
+                            app.searchController.addAllAlbumsToDownloads();
                             if (added > 0) {
-                                mainWindow.toastRequested("Queued " + added + (added === 1 ? " album" : " albums") + " for download");
+                                var message = qsTr("Queued ") + added
+                                    + (added === 1 ? qsTr(" album") : qsTr(" albums"))
+                                    + qsTr(" for download");
+                                if (skipped > 0) {
+                                    message += qsTr(", skipped ") + skipped + qsTr(" already queued");
+                                }
+                                mainWindow.toastRequested(message);
+                            } else if (skipped > 0) {
+                                mainWindow.toastRequested(qsTr("All results are already queued"));
                             } else {
-                                mainWindow.toastRequested("Nothing to add - run a search first");
+                                mainWindow.toastRequested(qsTr("Nothing to add - run a search first"));
                             }
                         }
                     }

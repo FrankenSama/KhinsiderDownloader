@@ -1,9 +1,11 @@
 #include "SettingsController.h"
 
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QUrl>
 
 namespace {
 QString configFilePath() {
@@ -62,6 +64,28 @@ void SettingsController::saveConfig() {
     m_settings.setValue("skipDownloaded", static_cast<bool>(m_SettingsObject->skipDownloaded()));
     m_settings.setValue("windowWidth", m_SettingsObject->windowWidth());
     m_settings.setValue("windowHeight", m_SettingsObject->windowHeight());
+    if (m_SettingsObject->windowPositionValid()) {
+        m_settings.setValue("windowX", m_SettingsObject->windowX());
+        m_settings.setValue("windowY", m_SettingsObject->windowY());
+    }
+    m_settings.setValue("windowMaximized", m_SettingsObject->windowMaximized());
     m_settings.setValue("lastTab", m_SettingsObject->lastTab());
     m_settings.sync();
+}
+
+void SettingsController::openConfigFolder() {
+    const QString configDir = QFileInfo(m_settings.fileName()).absolutePath();
+    QDir().mkpath(configDir);
+    QDesktopServices::openUrl(QUrl::fromLocalFile(configDir));
+}
+
+void SettingsController::resetToDefaults() {
+    if (!m_SettingsObject) {
+        return;
+    }
+
+    m_SettingsObject->resetToDefaults();
+    // The setters only emit when a value actually changes, so always write the
+    // config once to make sure every key reflects the defaults.
+    saveConfig();
 }

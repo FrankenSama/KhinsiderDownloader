@@ -57,6 +57,9 @@ QVariant DownloaderModel::data(const QModelIndex &index, int role) const {
         case StateRole: return album->state();
         case DownloadedSongsRole: return album->downloadedSongs();
         case TotalSongsRole: return album->totalSongs();
+        case DownloadedSizeRole: return album->downloadedSize();
+        case TotalSizeRole: return album->totalSize();
+        case ErrorRole: return album->lastError();
         default: return QVariant();
     }
 }
@@ -71,6 +74,9 @@ QHash<int, QByteArray> DownloaderModel::roleNames() const {
     roles[StateRole] = "state";
     roles[DownloadedSongsRole] = "downloadedSongs";
     roles[TotalSongsRole] = "totalSongs";
+    roles[DownloadedSizeRole] = "downloadedBytes";
+    roles[TotalSizeRole] = "totalBytes";
+    roles[ErrorRole] = "errorMessage";
     return roles;
 }
 
@@ -124,6 +130,26 @@ int DownloaderModel::totalSongs() const {
     int total = 0;
     for (const auto &album: m_albums) {
         if (album) total += album->totalSongs();
+    }
+    return total;
+}
+
+int DownloaderModel::completedCount() const {
+    int total = 0;
+    for (const auto &album: m_albums) {
+        if (album && album->state() == "complete") {
+            ++total;
+        }
+    }
+    return total;
+}
+
+int DownloaderModel::failedCount() const {
+    int total = 0;
+    for (const auto &album: m_albums) {
+        if (album && album->hasErrors()) {
+            ++total;
+        }
     }
     return total;
 }

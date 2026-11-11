@@ -9,6 +9,9 @@ Rectangle
        height: 800
        width: 600
 
+       // Bubbled up to Main.qml through DownloadPanel.
+       signal toastRequested(string message)
+
        ListView
        {
               id: downloadList
@@ -16,7 +19,7 @@ Rectangle
               width: parent.width
               anchors.top: parent.top
               anchors.topMargin: 10
-              anchors.bottom: queueFooter.top
+              anchors.bottom: queueActions.top
               clip: true
               spacing: 5
               reuseItems: true
@@ -39,7 +42,10 @@ Rectangle
                             label: model.name
                             donwloadedSongs: model.downloadedSongs
                             totalSongs: model.totalSongs
-                            speedInBytes: model.speed;
+                            speedInBytes: model.speed
+                            downloadedBytes: model.downloadedBytes
+                            totalBytes: model.totalBytes
+                            errorMessage: model.errorMessage
                             onCancelRequested:
                             {
                                    app.downloaderController.downloaderVM.cancelAlbum(index)
@@ -68,6 +74,57 @@ Rectangle
               font.pointSize: 12
               text: qsTr("No downloads yet.\nSearch for an album or paste links to get started.")
        }
+       // Bulk queue maintenance. Only shown when there is something to do, so
+       // the narrow side panel does not lose space to dead controls.
+       Item
+       {
+              id: queueActions
+              width: parent.width
+              height: visible ? 34 : 0
+              anchors.bottom: queueFooter.top
+              visible: queueFooter.completedCount > 0 || queueFooter.failedCount > 0
+
+              Row
+              {
+                     anchors.fill: parent
+                     anchors.leftMargin: 8
+                     anchors.rightMargin: 8
+                     spacing: 6
+
+                     WButton
+                     {
+                            width: (parent.width - parent.spacing) / 2
+                            height: parent.height
+                            fontSize: 10
+                            secondary: true
+                            visible: queueFooter.failedCount > 0
+                            label: qsTr("Retry failed") + " (" + queueFooter.failedCount + ")"
+                            onClicked: {
+                                   var count = app.downloaderController.retryFailed();
+                                   root.toastRequested(count > 0
+                                          ? qsTr("Retrying ") + count + (count === 1 ? qsTr(" album") : qsTr(" albums"))
+                                          : qsTr("Nothing to retry"));
+                            }
+                     }
+
+                     WButton
+                     {
+                            width: (parent.width - parent.spacing) / 2
+                            height: parent.height
+                            fontSize: 10
+                            secondary: true
+                            visible: queueFooter.completedCount > 0
+                            label: qsTr("Clear done") + " (" + queueFooter.completedCount + ")"
+                            onClicked: {
+                                   var count = app.downloaderController.clearCompleted();
+                                   root.toastRequested(count > 0
+                                          ? qsTr("Removed ") + count + (count === 1 ? qsTr(" finished album") : qsTr(" finished albums"))
+                                          : qsTr("Nothing to clear"));
+                            }
+                     }
+              }
+       }
+
        // Queue summary: overall progress, transferred size and speed. The
        // totals are invokable getters, so they are mirrored into properties
        // here and refreshed whenever the model reports a change.
@@ -85,6 +142,8 @@ Rectangle
               property real downloadedBytes: 0
               property real progress: 0
               property string speedLabel: ""
+              property int completedCount: 0
+              property int failedCount: 0
 
               function formatBytes(bytes) {
                      if (bytes >= 1024 * 1024 * 1024)
@@ -118,6 +177,8 @@ Rectangle
                      }
                      queueFooter.progress = vm.totalProgress() / 100;
                      queueFooter.speedLabel = queueFooter.formatSpeed(vm.totalSpeed());
+                     queueFooter.completedCount = vm.completedCount();
+                     queueFooter.failedCount = vm.failedCount();
               }
 
               Component.onCompleted: queueFooter.refresh()

@@ -10,6 +10,9 @@ Rectangle {
     height: 700
     width: 400
 
+    // Bubbled up to Main.qml, which owns the toast overlay.
+    signal toastRequested(string message)
+
     function openLogFolder() {
         var dir = app.logController.logDir;
         if (Qt.platform.os === "windows") {
@@ -272,8 +275,134 @@ Rectangle {
                 }
             }
 
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                Layout.topMargin: 6
+                Layout.bottomMargin: 6
+                color: Theme.borderSoft
+            }
+
+            Text {
+                color: Theme.textMuted
+                font.pointSize: 11
+                font.bold: true
+                text: qsTr("MAINTENANCE")
+            }
+
+            // Configuration file
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    Layout.fillWidth: true
+                    color: Theme.text
+                    font.pointSize: 12
+                    text: qsTr("Configuration file")
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                WButton {
+                    Layout.preferredWidth: 140
+                    Layout.preferredHeight: 40
+                    fontSize: 12
+                    secondary: true
+                    label: qsTr("Open folder")
+                    onClicked: app.settingsController.openConfigFolder()
+                }
+            }
+
+            // Reset settings
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    Layout.fillWidth: true
+                    color: Theme.text
+                    font.pointSize: 12
+                    text: qsTr("Reset all settings")
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                WButton {
+                    Layout.preferredWidth: 140
+                    Layout.preferredHeight: 40
+                    fontSize: 12
+                    secondary: true
+                    label: qsTr("Reset…")
+                    onClicked: resetOverlay.visible = true
+                }
+            }
+
             Item {
                 Layout.fillHeight: true
+            }
+        }
+    }
+
+    // Reset is destructive enough to deserve a confirmation step, and it
+    // cannot be undone once the config is rewritten.
+    Rectangle {
+        id: resetOverlay
+        anchors.fill: parent
+        visible: false
+        focus: visible
+        color: Theme.scrim
+        z: 100
+
+        Keys.onEscapePressed: resetOverlay.visible = false
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 400
+            height: 180
+            radius: Theme.radiusLg
+            color: Theme.surfaceAlt
+            border.width: 1
+            border.color: Theme.border
+
+            Column {
+                anchors.centerIn: parent
+                width: parent.width * 0.85
+                spacing: 18
+
+                Text {
+                    width: parent.width
+                    text: qsTr("Reset download path, threads, quality and behaviour settings to their defaults?")
+                    color: Theme.text
+                    font.pointSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
+
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 12
+
+                    WButton {
+                        width: 150
+                        height: 36
+                        fontSize: 12
+                        secondary: true
+                        label: qsTr("Keep settings")
+                        onClicked: resetOverlay.visible = false
+                    }
+
+                    WButton {
+                        width: 120
+                        height: 36
+                        fontSize: 12
+                        danger: true
+                        label: qsTr("Reset")
+                        onClicked: {
+                            app.settingsController.resetToDefaults();
+                            resetOverlay.visible = false;
+                            root.toastRequested(qsTr("Settings reset to defaults"));
+                        }
+                    }
+                }
             }
         }
     }

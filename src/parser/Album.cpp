@@ -3,6 +3,7 @@
 void Album::resetState() {
     m_isDownloading = false;
     m_hasErrors = false;
+    m_lastError.clear();
     for (const auto &song: m_songs) {
         if (!song) {
             continue;

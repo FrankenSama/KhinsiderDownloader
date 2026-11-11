@@ -5,7 +5,6 @@ import "../shared"
 
 Item {
     id: root
-    //todo: show speed per album, MB/MB stop button (delete)
     width: 800
     height: 600
 
@@ -181,6 +180,9 @@ Item {
                 DownloadSide {
                     width: parent.width
                     height: parent.height
+                    onToastRequested: function(message) {
+                        root.toastRequested(message);
+                    }
                 }
             }
         }
@@ -192,8 +194,11 @@ Item {
         id: cancelOverlay
         anchors.fill: parent
         visible: false
+        focus: visible
         color: Theme.scrim
         z: 100
+
+        Keys.onEscapePressed: cancelOverlay.visible = false
 
         Rectangle {
             anchors.centerIn: parent

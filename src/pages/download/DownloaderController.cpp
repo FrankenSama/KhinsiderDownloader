@@ -9,6 +9,30 @@
 
 #include "KhinsiderRequest.h"
 
+namespace {
+// QNetworkReply only exposes errorString() on a live reply. The download
+// workers hand the controller an enum instead, so map the common cases to a
+// short reason the queue can display.
+QString networkErrorText(QNetworkReply::NetworkError error) {
+    switch (error) {
+        case QNetworkReply::NoError: return QString();
+        case QNetworkReply::ConnectionRefusedError: return QObject::tr("connection refused");
+        case QNetworkReply::RemoteHostClosedError: return QObject::tr("connection closed by the server");
+        case QNetworkReply::HostNotFoundError: return QObject::tr("host not found");
+        case QNetworkReply::TimeoutError: return QObject::tr("connection timed out");
+        case QNetworkReply::SslHandshakeFailedError: return QObject::tr("secure connection failed");
+        case QNetworkReply::ContentNotFoundError: return QObject::tr("file not found (404)");
+        case QNetworkReply::ContentAccessDenied: return QObject::tr("access denied (403)");
+        case QNetworkReply::AuthenticationRequiredError: return QObject::tr("authentication required (401)");
+        case QNetworkReply::ServiceUnavailableError: return QObject::tr("server unavailable (503)");
+        case QNetworkReply::InternalServerError: return QObject::tr("server error (5xx)");
+        case QNetworkReply::UnknownContentError: return QObject::tr("unexpected response from the server");
+        case QNetworkReply::UnknownNetworkError: return QObject::tr("network error");
+        default: return QObject::tr("network error");
+    }
+}
+}
+
 DownloaderController::DownloaderController(QObject *parent, Settings *settings)
     : QObject(parent), m_settings(settings) {
     // The manager must outlive every reply owned by this controller. Making it
@@ -56,20 +80,42 @@ DownloadQuality DownloaderController::normalizeQuality(DownloadQuality quality) 
     return DownloadQuality::MP3;
 }
 
-void DownloaderController::addAlbumToDownload(QSharedPointer<Album> album, DownloadQuality quality) {
+bool DownloaderController::addAlbumToDownload(QSharedPointer<Album> album, DownloadQuality quality) {
     if (!album) {
-        return;
+        return false;
     }
+
+    // The same album can arrive from two different searches as two separate
+    // Album instances. Compare by link so it is only queued once.
+    for (auto it = m_addedAlbums.constBegin(); it != m_addedAlbums.constEnd(); ++it) {
+        if (it.key() && it.key()->albumLink() == album->albumLink()) {
+            return false;
+        }
+    }
+
     const DownloadQuality resolved = normalizeQuality(quality);
     m_addedAlbums[album] = resolved;
     // Remember the quality on the album itself: the queue footer uses it to
     // work out how many bytes the album will actually pull down.
     album->setDownloadQuality(resolved);
+    return true;
+}
+
+bool DownloaderController::isAlbumQueued(const QString &albumLink) const {
+    if (albumLink.isEmpty()) {
+        return false;
+    }
+    for (auto it = m_addedAlbums.constBegin(); it != m_addedAlbums.constEnd(); ++it) {
+        if (it.key() && it.key()->albumLink() == albumLink) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void DownloaderController::fetchPage(
     const QUrl &url,
-    std::function<void(QNetworkReply::NetworkError, const QByteArray &)> onFinished,
+    std::function<void(QNetworkReply::NetworkError, const QByteArray &, const QString &)> onFinished,
     int attemptsLeft) {
     QNetworkReply *reply = m_http->get(khinsiderRequest(url));
 
@@ -79,10 +125,11 @@ void DownloaderController::fetchPage(
                 const int status =
                     reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                 const QByteArray body = reply->readAll();
+                const QString errorText = reply->errorString();
                 reply->deleteLater();
 
                 if (error == QNetworkReply::NoError) {
-                    onFinished(error, body);
+                    onFinished(error, body, errorText);
                     return;
                 }
 
@@ -100,9 +147,9 @@ void DownloaderController::fetchPage(
                     return;
                 }
 
-                qWarning() << "Request failed:" << url.toString() << reply->errorString()
+                qWarning() << "Request failed:" << url.toString() << errorText
                            << "status" << status;
-                onFinished(error, body);
+                onFinished(error, body, errorText);
             });
 }
 
@@ -119,7 +166,8 @@ void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
     m_albumsBeingFetched.insert(album.data());
 
     fetchPage(QUrl(album->albumLink()),
-              [this, album](QNetworkReply::NetworkError error, const QByteArray &body) {
+              [this, album](QNetworkReply::NetworkError error, const QByteArray &body,
+                            const QString &errorText) {
                   m_albumsBeingFetched.remove(album.data());
 
                   // The album was canceled while the metadata request was in
@@ -133,12 +181,14 @@ void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
                       return;
                   }
                   if (error != QNetworkReply::NoError) {
+                      album->setLastError(tr("Could not load the album page: %1").arg(errorText));
                       album->setHasErrors(true);
                       return;
                   }
 
                   if (!KhinsiderParser::ParseAlbumPageHtml(body, album)) {
                       qWarning() << "Failed to parse album page" << album->albumLink();
+                      album->setLastError(tr("Could not read the album page"));
                       album->setHasErrors(true);
                       return;
                   }
@@ -201,6 +251,7 @@ void DownloaderController::processArtDownloads(QSharedPointer<Album> album) {
     QDir albumDir(downloadPath + QDir::separator() + albumName + QDir::separator() + "Art");
     if (!albumDir.exists() && !albumDir.mkpath(".")) {
         qWarning() << "Failed to create art directory" << albumDir.path();
+        album->setLastError(tr("Could not create the album folder"));
         album->setHasErrors(true);
         return;
     }
@@ -227,6 +278,7 @@ void DownloaderController::processArtDownloads(QSharedPointer<Album> album) {
         WDownloadReplyFile *artDownloadReply = new WDownloadReplyFile(m_downloadManager);
         if (!artDownloadReply->setFilePath(filePath)) {
             qWarning() << "Failed to open art file for writing:" << filePath;
+            album->setLastError(tr("Could not write album art to disk"));
             album->setHasErrors(true);
             artDownloadReply->deleteLater();
             continue;
@@ -250,6 +302,8 @@ void DownloaderController::processArtDownloads(QSharedPointer<Album> album) {
                         return;
                     }
                     if (error != QNetworkReply::NoError) {
+                        album->setLastError(tr("Could not download album art: %1")
+                                                .arg(networkErrorText(error)));
                         album->setHasErrors(true);
 
                         qWarning() << "Request failed downloading art:" << fileName << "to" << filePath;
@@ -324,6 +378,7 @@ void DownloaderController::retryAlbum(Album *album) {
     }
 
     quality = normalizeQuality(quality);
+    album->setLastError(QString());
     album->setHasErrors(false);
 
     if (!album->isInfoParsed()) {
@@ -370,7 +425,7 @@ void DownloaderController::fetchSongDownloadLinks(QSharedPointer<Song> song, Dow
 
     fetchPage(QUrl("https://downloads.khinsider.com" + song->songLink()),
               [this, song, quality, album](QNetworkReply::NetworkError error,
-                                           const QByteArray &body) {
+                                           const QByteArray &body, const QString &errorText) {
                   if (error == QNetworkReply::OperationCanceledError) {
                       return;
                   }
@@ -380,6 +435,7 @@ void DownloaderController::fetchSongDownloadLinks(QSharedPointer<Song> song, Dow
                   }
 
                   if (error != QNetworkReply::NoError) {
+                      album->setLastError(tr("Could not load a track page: %1").arg(errorText));
                       album->setHasErrors(true);
                       song->setErrored(true);
 
@@ -393,12 +449,14 @@ void DownloaderController::fetchSongDownloadLinks(QSharedPointer<Song> song, Dow
                   if (!doc) {
                       qWarning() << "HTML read failed while parsing song download links";
                       song->setErrored(true);
+                      album->setLastError(tr("Could not read a track page"));
                       album->setHasErrors(true);
                       return;
                   }
 
                   if (!KhinsiderParser::ParseDownloadLink(doc, song)) {
                       song->setErrored(true);
+                      album->setLastError(tr("No download link was found on a track page"));
                       album->setHasErrors(true);
                       xmlFreeDoc(doc);
                       return;
@@ -453,6 +511,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (downloadLink.isEmpty()) {
         qWarning() << "No download link found for song:" << song->name();
         song->setErrored(true);
+        album->setLastError(tr("No download link was available for this format"));
         album->setHasErrors(true);
         return;
     }
@@ -461,6 +520,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (downloadPath.isEmpty()) {
         qWarning() << "Download path is not configured";
         song->setErrored(true);
+        album->setLastError(tr("The download folder is not configured"));
         album->setHasErrors(true);
         return;
     }
@@ -479,6 +539,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (!albumDir.exists() && !albumDir.mkpath(".")) {
         qWarning() << "Failed to create album directory" << albumDir.path();
         song->setErrored(true);
+        album->setLastError(tr("Could not create the album folder"));
         album->setHasErrors(true);
         return;
     }
@@ -514,6 +575,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
     if (!songDownloadReply->setFilePath(filePath)) {
         qWarning() << "Failed to open song file for writing:" << filePath;
         song->setErrored(true);
+        album->setLastError(tr("Could not write to the download folder"));
         album->setHasErrors(true);
         songDownloadReply->deleteLater();
         return;
@@ -528,6 +590,7 @@ void DownloaderController::downloadSongFile(QSharedPointer<Song> song, DownloadQ
                 }
                 if (error != QNetworkReply::NoError) {
                     song->setErrored(true);
+                    album->setLastError(tr("Download failed: %1").arg(networkErrorText(error)));
                     album->setHasErrors(true);
 
                     qWarning() << "Request failed downloading song:" << song->name() << "to" << filePath;
@@ -584,7 +647,9 @@ void DownloaderController::onDownloadListAdd(QSharedPointer<Album> album, Downlo
         return;
     }
 
-    addAlbumToDownload(album, quality);
+    if (!addAlbumToDownload(album, quality)) {
+        return;
+    }
     updateModelData();
 
     if (!album->isInfoParsed()) {
@@ -698,7 +763,9 @@ void DownloaderController::requestAddAlbums(QVector<QSharedPointer<Album> > albu
             continue;
         }
 
-        addAlbumToDownload(album, quality);
+        if (!addAlbumToDownload(album, quality)) {
+            continue;
+        }
 
         if (!album->isInfoParsed()) {
             fetchFullAlbumData(album);
@@ -794,4 +861,36 @@ void DownloaderController::openDownloadFolder() {
     }
 
     QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
+}
+
+int DownloaderController::clearCompleted() {
+    int removed = 0;
+    for (auto it = m_addedAlbums.begin(); it != m_addedAlbums.end();) {
+        if (it.key() && it.key()->state() == "complete") {
+            it = m_addedAlbums.erase(it);
+            ++removed;
+        } else {
+            ++it;
+        }
+    }
+
+    if (removed > 0) {
+        updateModelData();
+    }
+    return removed;
+}
+
+int DownloaderController::retryFailed() {
+    // Collect first: retryAlbum may mutate the map's album state while it runs.
+    QVector<Album *> failed;
+    for (auto it = m_addedAlbums.constBegin(); it != m_addedAlbums.constEnd(); ++it) {
+        if (it.key() && it.key()->hasErrors()) {
+            failed.append(it.key().data());
+        }
+    }
+
+    for (Album *album: std::as_const(failed)) {
+        retryAlbum(album);
+    }
+    return failed.size();
 }

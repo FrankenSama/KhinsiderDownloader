@@ -22,7 +22,8 @@ public:
 
     ~DownloaderController() override;
 
-    void addAlbumToDownload(QSharedPointer<Album> album, DownloadQuality quality);
+    // Returns false when an album with the same link is already queued.
+    bool addAlbumToDownload(QSharedPointer<Album> album, DownloadQuality quality);
 
     void fetchFullAlbumData(QSharedPointer<Album> album);
 
@@ -38,6 +39,17 @@ public:
 
     // Opens the configured download folder in the system file browser.
     Q_INVOKABLE void openDownloadFolder();
+
+    // True when an album with this link is already in the queue. Used by the
+    // search UI so it can explain why an album was not added twice.
+    Q_INVOKABLE bool isAlbumQueued(const QString &albumLink) const;
+
+    // Removes every finished album from the queue and returns how many were
+    // removed.
+    Q_INVOKABLE int clearCompleted();
+
+    // Retries every errored album and returns how many were retried.
+    Q_INVOKABLE int retryFailed();
 
 public slots:
     void openAlbumFolder(Album *album);
@@ -64,7 +76,8 @@ private:
     // fingerprint with a 403 managed challenge no matter which headers are
     // sent, while Qt's native stack gets through.
     void fetchPage(const QUrl &url,
-                   std::function<void(QNetworkReply::NetworkError, const QByteArray &)> onFinished,
+                   std::function<void(QNetworkReply::NetworkError, const QByteArray &,
+                                       const QString &)> onFinished,
                    int attemptsLeft = 2);
 
     void onAlbumDataFetched(QSharedPointer<Album> album, DownloadQuality quality);

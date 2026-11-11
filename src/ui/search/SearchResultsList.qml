@@ -53,6 +53,11 @@ Item {
         if (root.selectedIndex < 0) {
             return;
         }
+        var link = app.searchController.searchResultVM.albumLinkAt(root.selectedIndex);
+        if (app.downloaderController.isAlbumQueued(link)) {
+            root.toastRequested(qsTr("That album is already queued"));
+            return;
+        }
         var name = app.searchController.addAlbumToDownloads(root.selectedIndex);
         if (name.length > 0) {
             root.toastRequested("Queued " + name + " for download");

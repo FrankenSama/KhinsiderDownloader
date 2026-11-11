@@ -11,6 +11,9 @@ Rectangle {
     height: 700
     width: 400
 
+    // Opens the shortcut reference owned by Main.qml.
+    signal shortcutsRequested()
+
     readonly property string repoUrl: "https://github.com/FrankenSama/KhinsiderDownloader"
     readonly property string releasesUrl: root.repoUrl + "/releases"
     readonly property string issuesUrl: root.repoUrl + "/issues"
@@ -224,6 +227,15 @@ Rectangle {
                     secondary: true
                     label: qsTr("KHInsider")
                     onClicked: root.openUrl(root.siteUrl)
+                }
+
+                WButton {
+                    width: 130
+                    height: 40
+                    fontSize: 13
+                    secondary: true
+                    label: qsTr("Shortcuts (F1)")
+                    onClicked: root.shortcutsRequested()
                 }
             }
 

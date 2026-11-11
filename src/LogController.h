@@ -35,6 +35,10 @@ private:
 
     ~LogController();
 
+    // Moves app.log to app.log.1 once it grows past the cap, so a long-lived
+    // install does not accumulate an unbounded log file.
+    void rotateIfNeeded();
+
     QPointer<Settings> m_settings;
     QFile m_logFile;
     QTextStream m_stream;

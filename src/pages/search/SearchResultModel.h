@@ -32,6 +32,12 @@ public:
         return nullptr;
     }
 
+    // Used by the search UI to check whether a result is already queued.
+    Q_INVOKABLE QString albumLinkAt(int index) const {
+        const QSharedPointer<Album> album = getAlbumAt(index);
+        return album ? album->albumLink() : QString();
+    }
+
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
         if (!index.isValid() || index.row() >= m_albums.count())
             return QVariant();
