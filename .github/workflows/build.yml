@@ -22,7 +22,7 @@ jobs:
       run_linux: ${{ steps.check_flags.outputs.run_linux }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Check Build Flags First
         id: check_flags
@@ -128,17 +128,17 @@ jobs:
           echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $env:GITHUB_ENV
           
       - name: Export GitHub Actions cache variables
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
             
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache Qt
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: '${{ env.TEMP }}\qt'
           key: windows-qt-${{ hashFiles('**/CMakeLists.txt') }}
@@ -158,7 +158,7 @@ jobs:
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7'
 
       - name: Cache CMake dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/.cmake
           key: windows-cmake-${{ hashFiles('**/CMakeLists.txt') }}
@@ -216,13 +216,13 @@ jobs:
           cd ..\..
           
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-release-${{ needs.prebuild.outputs.version }}
           path: build/Release/*
 
       - name: Upload Installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer-${{ needs.prebuild.outputs.version }}
           path: build/Installer/KhinsiderInstaller.exe
@@ -233,7 +233,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Update APP_VERSION file
         run: |
@@ -241,7 +241,7 @@ jobs:
           echo "Updated APP_VERSION to ${{ needs.prebuild.outputs.version }}"
 
       - name: Cache Qt
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: '${{ runner.temp }}/qt'
           key: ${{ runner.os }}-qt-${{ hashFiles('**/CMakeLists.txt') }}
@@ -260,7 +260,7 @@ jobs:
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7'
 
       - name: Cache CMake dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/.cmake
           key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}
@@ -284,7 +284,7 @@ jobs:
           ./scripts/linux/deploy.sh
         
       - name: Send Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
             name: linux-release-${{ needs.prebuild.outputs.version }}
             path: deploy/result/KhinsiderQT*.AppImage
@@ -298,7 +298,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -333,7 +333,7 @@ jobs:
 
       - name: Download all artifacts
         if: steps.check_release.outputs.create_release == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-artifacts
 
@@ -368,7 +368,7 @@ jobs:
 
       - name: Create Release
         if: steps.check_release.outputs.create_release == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.get_version.outputs.tag_version }}
           name: "Release: ${{ steps.get_version.outputs.version }}"

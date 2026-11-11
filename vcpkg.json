@@ -1,8 +1,8 @@
 {
-  "version": "2023-05-10",
+  "version": "2026-11-11",
   "dependencies": [
     "curl",
     "libxml2"
   ],
-  "builtin-baseline": "ec48c11eae9448c8c6e7739d93e06fa2433aa95f"
+  "builtin-baseline": "2ec0f1747d8186a5c9babe276e2ad57cd2b12d2a"
 }
