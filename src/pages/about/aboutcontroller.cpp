@@ -14,6 +14,11 @@ AboutController::AboutController(QObject *parent)
         QTextStream in(&file);
         m_version = in.readLine().trimmed();
     }
+    // One shared manager: the About page can trigger checks repeatedly, and
+    // each request needs the same reply handler.
+    m_manager = new QNetworkAccessManager(this);
+    connect(m_manager, &QNetworkAccessManager::finished, this,
+            &AboutController::onUpdateCheckFinished);
     checkForUpdates();
 }
 
@@ -44,21 +49,18 @@ bool AboutController::isNewVersion(const QString &latestVersion, const QString &
 }
 
 void AboutController::checkForUpdates() {
-    QString currentVersion = m_version;
-
     QNetworkRequest request(QUrl("https://api.github.com/repos/FrankenSama/KhinsiderDownloader/releases"));
     request.setHeader(QNetworkRequest::UserAgentHeader, "KhinsiderDownloader");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-    connect(manager, &QNetworkAccessManager::finished, this, &AboutController::onUpdateCheckFinished);
-    manager->get(request);
+    m_manager->get(request);
 }
 
 void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
     if (reply->error() != QNetworkReply::NoError) {
         qDebug() << "Failed to check for updates!";
         reply->deleteLater();
+        emit updateCheckFailed();
         return;
     }
 
@@ -67,6 +69,7 @@ void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
     if (!doc.isArray()) {
         qDebug() << "Update check returned an unexpected response";
         reply->deleteLater();
+        emit updateCheckFailed();
         return;
     }
     QJsonArray releases = doc.array();
@@ -102,6 +105,7 @@ void AboutController::onUpdateCheckFinished(QNetworkReply *reply) {
         emit foundNewUpdate(latestVersion);
     } else {
         //We're ahead of release!
+        emit upToDate();
     }
 
     reply->deleteLater();
