@@ -87,11 +87,11 @@ Window {
     }
     Shortcut {
         sequence: "Ctrl+1"
-        onActivated: window.showTab("downloadtab")
+        onActivated: window.showTab("searchtab")
     }
     Shortcut {
         sequence: "Ctrl+2"
-        onActivated: window.showTab("searchtab")
+        onActivated: window.showTab("downloadtab")
     }
     Shortcut {
         sequence: "Ctrl+3"
@@ -225,6 +225,18 @@ Window {
                     }
 
                     SideButton {
+                        id: leftsearchbutton
+                        Layout.preferredHeight: 40
+                        Layout.alignment: Qt.AlignTop
+                        iconFallback: "../../icons/search.svg"
+                        iconSource: "qrc:/icons/search.svg"
+                        label: "Search"
+                        onClicked: {
+                            window.showTab("searchtab");
+                        }
+                    }
+
+                    SideButton {
                         id: leftdownloadbutton
                         Layout.preferredHeight: 40
                         Layout.alignment: Qt.AlignTop
@@ -236,18 +248,6 @@ Window {
                             window.showTab("downloadtab");
                         }
 
-                    }
-
-                    SideButton {
-                        id: leftsearchbutton
-                        Layout.preferredHeight: 40
-                        Layout.alignment: Qt.AlignTop
-                        iconFallback: "../../icons/search.svg"
-                        iconSource: "qrc:/icons/search.svg"
-                        label: "Search"
-                        onClicked: {
-                            window.showTab("searchtab");
-                        }
                     }
 
                     SideButton {
