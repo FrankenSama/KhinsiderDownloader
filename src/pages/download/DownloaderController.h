@@ -120,6 +120,9 @@ private:
     QNetworkAccessManager *m_http = nullptr;
     Settings *m_settings = nullptr;
     QMap<QSharedPointer<Album>, DownloadQuality> m_addedAlbums;
+    // Insertion order for the queue. QMap sorts by key (the album pointer), so
+    // iterating it directly would show albums in heap-address order.
+    QVector<QSharedPointer<Album> > m_albumOrder;
     QSet<Album *> m_albumsBeingFetched;
     QHash<Album *, QVector<WDownloadReplyFile *> > m_artReplies;
 };

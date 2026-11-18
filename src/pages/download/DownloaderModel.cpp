@@ -44,16 +44,11 @@ QVariant DownloaderModel::data(const QModelIndex &index, int role) const {
 
     switch (role) {
         case NameRole: return album->name();
-        //case StatusRole: return album->status();
         case ProgressRole: {
             if (album->totalSongs() == 0) return 0;
             return (album->downloadedSongs() * 100) / album->totalSongs();
         };
         case SpeedRole: return album->downloadSpeed();
-        case SizeRole: {
-            if (album->totalSongs() == 0) return 0;
-            return album->downloadedSongs() / album->totalSongs();
-        }
         case StateRole: return album->state();
         case DownloadedSongsRole: return album->downloadedSongs();
         case TotalSongsRole: return album->totalSongs();
@@ -67,10 +62,8 @@ QVariant DownloaderModel::data(const QModelIndex &index, int role) const {
 QHash<int, QByteArray> DownloaderModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[NameRole] = "name";
-    roles[StatusRole] = "status";
     roles[ProgressRole] = "progress";
     roles[SpeedRole] = "speed";
-    roles[SizeRole] = "size";
     roles[StateRole] = "state";
     roles[DownloadedSongsRole] = "downloadedSongs";
     roles[TotalSongsRole] = "totalSongs";

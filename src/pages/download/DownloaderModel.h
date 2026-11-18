@@ -12,10 +12,8 @@ class DownloaderModel : public QAbstractListModel {
 public:
     enum Roles {
         NameRole = Qt::UserRole + 1,
-        StatusRole,
         ProgressRole,
         SpeedRole,
-        SizeRole,
         StateRole,
         DownloadedSongsRole,
         TotalSongsRole,

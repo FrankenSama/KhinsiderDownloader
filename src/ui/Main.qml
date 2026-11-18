@@ -22,6 +22,10 @@ Window {
     // Set once the user has confirmed quitting while work is still pending.
     property bool allowQuit: false
 
+    // Tracks the maximized state even while the window is minimized, where
+    // visibility cannot be queried directly.
+    property bool maximizedState: false
+
     // Mirrored from the downloader model so the title bar and the sidebar badge
     // can react to progress (the model only exposes invokable getters).
     property int totalSongCount: 0
@@ -58,14 +62,16 @@ Window {
         window.height = app.settings.windowHeight;
 
         // Restore the position only if it still falls on a connected screen;
-        // a saved monitor may have been unplugged since the last launch.
+        // a saved monitor may have been unplugged since the last launch. The
+        // check has to use the whole virtual desktop, not just the primary
+        // screen, or a window closed on a second monitor is discarded.
         if (app.settings.windowPositionValid) {
             var savedX = app.settings.windowX;
             var savedY = app.settings.windowY;
             var onScreen = savedX >= Screen.virtualX
-                && savedX < Screen.virtualX + Screen.width
+                && savedX < Screen.virtualX + Screen.virtualWidth
                 && savedY >= Screen.virtualY
-                && savedY < Screen.virtualY + Screen.height;
+                && savedY < Screen.virtualY + Screen.virtualHeight;
             if (onScreen) {
                 window.x = savedX;
                 window.y = savedY;
@@ -148,14 +154,34 @@ Window {
     }
 
     onClosing: function(close) {
-        app.settings.saveWindowState(window.width, window.height, window.x, window.y,
-                                     window.visibility === Window.Maximized, maincol.state);
+        // Only persist the live geometry while the window is in its normal
+        // state. Saving a maximized (or fullscreen) rectangle would make the
+        // window screen-sized the next time the user un-maximizes it.
+        if (window.visibility === Window.Windowed) {
+            app.settings.saveWindowState(window.width, window.height, window.x, window.y,
+                                         false, maincol.state);
+        } else {
+            app.settings.saveWindowState(app.settings.windowWidth, app.settings.windowHeight,
+                                         app.settings.windowPositionValid
+                                             ? app.settings.windowX : window.x,
+                                         app.settings.windowPositionValid
+                                             ? app.settings.windowY : window.y,
+                                         window.maximizedState, maincol.state);
+        }
 
         var vm = app.downloaderController.downloaderVM;
         var hasPendingWork = vm.totalSongs() > 0 && vm.totalDownloadedSongs() < vm.totalSongs();
         if (!window.allowQuit && hasPendingWork) {
             close.accepted = false;
             quitOverlay.visible = true;
+        }
+    }
+
+    onVisibilityChanged: {
+        if (window.visibility === Window.Maximized) {
+            window.maximizedState = true;
+        } else if (window.visibility === Window.Windowed) {
+            window.maximizedState = false;
         }
     }
 
@@ -373,12 +399,24 @@ Window {
         color: Theme.scrim
         z: 900
 
+        // Dismiss the prompt and keep the panels underneath from receiving
+        // clicks while it is open.
+        MouseArea {
+            anchors.fill: parent
+            onClicked: quitOverlay.visible = false
+        }
+
         Rectangle {
             anchors.centerIn: parent
             width: 400
             height: 160
             radius: Theme.radiusLg
             color: Theme.surfaceAlt
+
+            // Keep clicks on the card from reaching the background MouseArea.
+            MouseArea {
+                anchors.fill: parent
+            }
 
             Column {
                 anchors.centerIn: parent

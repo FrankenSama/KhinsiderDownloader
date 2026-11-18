@@ -4,8 +4,6 @@ import Qt5Compat.GraphicalEffects
 import QtQuick.Layouts
 
 Item {
-       state: "errored"
-
        signal cancelRequested();
        signal retryRequested();
        signal openFolderRequested();
@@ -196,11 +194,6 @@ Item {
                      width: (percentagebar.percentage / 100) * (mainrect.width - 2)
                      height: 3
                      radius: 1.5
-
-                     onPercentageChanged:
-                     {
-                            percentagebar.width = (percentagebar.percentage / 100) * (mainrect.width - 2)
-                     }
 
                      Behavior on width {
                          NumberAnimation {

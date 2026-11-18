@@ -200,6 +200,13 @@ Item {
 
         Keys.onEscapePressed: cancelOverlay.visible = false
 
+        // Dismiss the prompt and keep the queue underneath from receiving
+        // clicks while it is open.
+        MouseArea {
+            anchors.fill: parent
+            onClicked: cancelOverlay.visible = false
+        }
+
         Rectangle {
             anchors.centerIn: parent
             width: 400
@@ -208,6 +215,11 @@ Item {
             color: Theme.surfaceAlt
             border.width: 1
             border.color: Theme.border
+
+            // Keep clicks on the card from reaching the background MouseArea.
+            MouseArea {
+                anchors.fill: parent
+            }
 
             Column {
                 anchors.centerIn: parent

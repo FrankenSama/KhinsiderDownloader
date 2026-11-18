@@ -152,7 +152,8 @@ Rectangle {
                     onValueChanged: {
                         app.settings.setMaxConcurrentDownloadsPerThread(currentNumber);
                     }
-                    maxNumber: 256
+                    // Matches the clamp in Settings::setMaxConcurrentDownloadsPerThread.
+                    maxNumber: 64
                     minNumber: 0
                 }
             }

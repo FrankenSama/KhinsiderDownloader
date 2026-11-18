@@ -31,6 +31,34 @@ QString networkErrorText(QNetworkReply::NetworkError error) {
         default: return QObject::tr("network error");
     }
 }
+
+// The same album can arrive from a search result, a pasted URL and a retry,
+// with small differences in casing, trailing slashes or query strings. Compare
+// a canonical form so one album cannot end up in the queue twice.
+QString normalizedAlbumLink(const QString &link) {
+    const QString trimmed = link.trimmed();
+    QUrl url(trimmed);
+    if (!url.isValid() || url.host().isEmpty()) {
+        QString fallback = trimmed;
+        while (fallback.endsWith('/')) {
+            fallback.chop(1);
+        }
+        return fallback;
+    }
+
+    url.setScheme(url.scheme().toLower());
+    url.setHost(url.host().toLower());
+    url.setQuery(QString());
+    url.setFragment(QString());
+
+    QString path = url.path();
+    while (path.size() > 1 && path.endsWith('/')) {
+        path.chop(1);
+    }
+    url.setPath(path);
+
+    return url.toString(QUrl::FullyEncoded);
+}
 }
 
 DownloaderController::DownloaderController(QObject *parent, Settings *settings)
@@ -87,14 +115,16 @@ bool DownloaderController::addAlbumToDownload(QSharedPointer<Album> album, Downl
 
     // The same album can arrive from two different searches as two separate
     // Album instances. Compare by link so it is only queued once.
+    const QString newLink = normalizedAlbumLink(album->albumLink());
     for (auto it = m_addedAlbums.constBegin(); it != m_addedAlbums.constEnd(); ++it) {
-        if (it.key() && it.key()->albumLink() == album->albumLink()) {
+        if (it.key() && normalizedAlbumLink(it.key()->albumLink()) == newLink) {
             return false;
         }
     }
 
     const DownloadQuality resolved = normalizeQuality(quality);
     m_addedAlbums[album] = resolved;
+    m_albumOrder.append(album);
     // Remember the quality on the album itself: the queue footer uses it to
     // work out how many bytes the album will actually pull down.
     album->setDownloadQuality(resolved);
@@ -105,8 +135,9 @@ bool DownloaderController::isAlbumQueued(const QString &albumLink) const {
     if (albumLink.isEmpty()) {
         return false;
     }
+    const QString normalized = normalizedAlbumLink(albumLink);
     for (auto it = m_addedAlbums.constBegin(); it != m_addedAlbums.constEnd(); ++it) {
-        if (it.key() && it.key()->albumLink() == albumLink) {
+        if (it.key() && normalizedAlbumLink(it.key()->albumLink()) == normalized) {
             return true;
         }
     }
@@ -189,6 +220,16 @@ void DownloaderController::fetchFullAlbumData(QSharedPointer<Album> album) {
                   if (!KhinsiderParser::ParseAlbumPageHtml(body, album)) {
                       qWarning() << "Failed to parse album page" << album->albumLink();
                       album->setLastError(tr("Could not read the album page"));
+                      album->setHasErrors(true);
+                      return;
+                  }
+
+                  // A page without a song table parses "successfully" but has
+                  // nothing to download. Without this the album would sit in
+                  // the queue as "downloading" forever and could not be retried.
+                  if (album->songs().isEmpty()) {
+                      qWarning() << "No tracks found on album page" << album->albumLink();
+                      album->setLastError(tr("No tracks were found on the album page"));
                       album->setHasErrors(true);
                       return;
                   }
@@ -351,6 +392,12 @@ void DownloaderController::cancelAlbum(Album *album) {
     for (auto it = m_addedAlbums.begin(); it != m_addedAlbums.end(); ++it) {
         if (it.key().data() == album) {
             m_addedAlbums.erase(it);
+            break;
+        }
+    }
+    for (int i = m_albumOrder.size() - 1; i >= 0; --i) {
+        if (m_albumOrder.at(i).data() == album) {
+            m_albumOrder.removeAt(i);
             break;
         }
     }
@@ -663,9 +710,10 @@ void DownloaderController::onDownloadListAdd(QSharedPointer<Album> album, Downlo
 
 void DownloaderController::updateModelData() {
     QVector<QSharedPointer<Album> > albumsForModel;
-    for (auto it = m_addedAlbums.begin(); it != m_addedAlbums.end(); ++it) {
-        if (it.key()) {
-            albumsForModel.append(it.key());
+    albumsForModel.reserve(m_albumOrder.size());
+    for (const auto &album: std::as_const(m_albumOrder)) {
+        if (album) {
+            albumsForModel.append(album);
         }
     }
 
@@ -688,9 +736,10 @@ int DownloaderController::addToDownloadListImpl(const QString &List) {
         }
 
         bool alreadyAdded = false;
+        const QString normalizedUrl = normalizedAlbumLink(url);
         for (auto it = m_addedAlbums.begin(); it != m_addedAlbums.end(); ++it) {
             QSharedPointer<Album> album = it.key();
-            if (album && album->albumLink() == url) {
+            if (album && normalizedAlbumLink(album->albumLink()) == normalizedUrl) {
                 alreadyAdded = true;
                 break;
             }
@@ -875,6 +924,12 @@ int DownloaderController::clearCompleted() {
     }
 
     if (removed > 0) {
+        for (int i = m_albumOrder.size() - 1; i >= 0; --i) {
+            const QSharedPointer<Album> &album = m_albumOrder.at(i);
+            if (album && album->state() == "complete") {
+                m_albumOrder.removeAt(i);
+            }
+        }
         updateModelData();
     }
     return removed;
