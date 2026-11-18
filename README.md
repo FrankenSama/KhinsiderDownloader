@@ -7,6 +7,7 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-yellow.svg)
 [![Build](https://img.shields.io/github/actions/workflow/status/FrankenSama/KhinsiderDownloader/build.yml?branch=master)](https://github.com/FrankenSama/KhinsiderDownloader/actions/workflows/build.yml)
 [![Downloads](https://img.shields.io/github/downloads/FrankenSama/KhinsiderDownloader/total.svg)](https://tooomm.github.io/github-release-stats/?username=FrankenSama&repository=KhinsiderDownloader)
+[![Fork](https://img.shields.io/badge/fork%20of-weespin%2FKhinsiderDownloader-blue)](https://github.com/weespin/KhinsiderDownloader)
 
 **Search Khinsider and bulk-download entire soundtracks, with a clean desktop GUI.**
 
@@ -20,7 +21,7 @@ KhinsiderDownloader is a desktop app for Windows and Linux that searches [downlo
 
 Built with C++ and Qt 6 (Quick/QML), it runs natively on both platforms, remembers your settings and window state, and keeps the interface responsive while downloads run in the background.
 
-This is FrankenSama's maintained version of KhinsiderDownloader, developed independently with its own changes and release schedule. It is based on the original [KhinsiderDownloader](https://github.com/weespin/KhinsiderDownloader) by [Weespin](https://github.com/weespin) — many thanks for the original work.
+This repository is a **fork of [KhinsiderDownloader](https://github.com/weespin/KhinsiderDownloader) by [Weespin](https://github.com/weespin)**, maintained independently by [FrankenSama](https://github.com/FrankenSama) with its own changes and release schedule. It is not the official build of the original project — many thanks to Weespin for the original work.
 
 ## Features
 

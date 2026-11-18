@@ -18,6 +18,8 @@ Rectangle {
     readonly property string releasesUrl: root.repoUrl + "/releases"
     readonly property string issuesUrl: root.repoUrl + "/issues"
     readonly property string siteUrl: "https://downloads.khinsider.com"
+    // This repository is a GitHub fork of Weespin's original project.
+    readonly property string upstreamUrl: "https://github.com/weespin/KhinsiderDownloader"
 
     // APP_VERSION carries a build-channel suffix ("3.1.0.44-release"); the pill
     // only shows the numeric version.
@@ -291,6 +293,11 @@ Rectangle {
                                 url: root.issuesUrl
                             },
                             {
+                                title: qsTr("Original project"),
+                                detail: qsTr("Forked from weespin/KhinsiderDownloader"),
+                                url: root.upstreamUrl
+                            },
+                            {
                                 title: qsTr("KHInsider"),
                                 detail: qsTr("downloads.khinsider.com"),
                                 url: root.siteUrl
@@ -474,8 +481,11 @@ Rectangle {
                 wrapMode: Text.WordWrap
                 textFormat: Text.RichText
                 linkColor: Theme.accent
-                text: qsTr("© 2025 Weespin · Free software under the "
+                text: qsTr("© 2025 Weespin · © 2026 FrankenSama · A fork of the "
+                           + "<a href=\"%1\">original project</a>, not the official build · "
+                           + "Free software under the "
                            + "<a href=\"https://www.gnu.org/licenses/gpl-3.0.html\">GPLv3</a>")
+                          .arg(root.upstreamUrl)
                 onLinkActivated: root.openUrl(link)
             }
         }
